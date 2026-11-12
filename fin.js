@@ -16,8 +16,16 @@ const numOrNull = s => { const n = parseNum(s); return isNaN(n) ? null : n; };
 const total = (arr, f) => arr.reduce((s, x) => s + (f(x) || 0), 0);
 const years = n => { const y = Math.floor(n / 12), m = n % 12; return (y ? y + ' ' + plural(y, 'год', 'года', 'лет') + ' ' : '') + (m || !y ? m + ' мес.' : '').trim(); };
 
+const PALETTE = ['#f9dc6b', '#f4b6d9', '#cdc8f6', '#bdd3f3', '#b9e6d6', '#fad6b8', '#f6aaa3', '#c5d8a4', '#e7c6f5', '#a9dfe8'];
+const CAT_EMOJI = ['🍎', '💅', '📱', '🏠', '👗', '📚', '🚕', '🎁', '💊', '🎉', '🐾', '✈️', '☕', '🧾', '💻', '🏷️'];
+const CAT_NONE = { id: 'none', name: 'Без категории', emoji: '❔', color: '#d9d9e2' };
+const defaultCats = () => [['subs', 'Подписки', '📱'], ['food', 'Еда', '🍎'], ['beauty', 'Красота', '💅'], ['home', 'Дом', '🏠'], ['clothes', 'Одежда', '👗'], ['study', 'Обучение', '📚']]
+  .map((c, i) => ({ id: c[0], name: c[1], emoji: c[2], color: PALETTE[i] }));
+const catOf = id => state.fin.cats.find(c => c.id === id) || CAT_NONE;
+function finMigrate() { if (!state.fin.cats) state.fin.cats = defaultCats(); }
+
 function finEmpty() {
-  return { months: {}, goal: null, expected: [], accounts: [], fixed: [], subs: [], rate: 3,
+  return { months: {}, goal: null, expected: [], accounts: [], fixed: [], subs: [], cats: defaultCats(), rate: 3,
     loan: { balance: 0, rate1: 1, rate2: 15.4, graceEnd: '', deferEnd: '', pay1: 0, pay2: 0, payments: [] } };
 }
 
@@ -33,7 +41,7 @@ function finImport(seed) {
   f.goal = seed.goal || null;
   f.expected = (seed.expected || []).map(x => ({ id: newId(), name: x[0], amount: x[1] }));
   f.accounts = (seed.accounts || []).map(x => ({ id: newId(), name: x[0], amount: x[1] }));
-  f.fixed = (seed.fixed || []).map(x => ({ id: newId(), name: x[0], amount: x[1] }));
+  f.fixed = (seed.fixed || []).map(x => ({ id: newId(), name: x[0], amount: x[1], cat: x[2] || null }));
   f.subs = (seed.subs || []).map(x => ({ id: newId(), name: x[0], month: x[1], year: x[2], note: x[3] || '' }));
   if (seed.rate) f.rate = seed.rate;
   Object.assign(f.loan, seed.loan || {});
@@ -135,10 +143,26 @@ function viewCosts() {
   let html = '<div class="mnav"><button data-act="mprev">‹</button><b>' + mName(k) + '</b><button data-act="mnext">›</button></div>' +
     finHero({ label: 'Расходы за месяц', num: byn(all), of: '≈ ' + usd(Math.round(all / f.rate)) + ' по курсу ' + String(f.rate).replace('.', ','), pct: null,
       pill: 'постоянные ' + byn(fixSum) + ' · переменные ' + byn(varSum), act: 'rateset', btn: 'курс $' });
+  // куда ушли деньги: по категориям
+  const sums = {};
+  const put = (id, v) => { const key = catOf(id).id; sums[key] = (sums[key] || 0) + v; };
+  fixed.forEach(x => put(x.cat, x.amount)); vars.forEach(x => put(x.cat, x.amount));
+  if (subMonth) put('subs', subMonth * f.rate);
+  const parts = Object.keys(sums).filter(id => sums[id] > 0).map(id => ({ cat: catOf(id), sum: sums[id] })).sort((a, b) => b.sum - a.sum);
+  if (all > 0) {
+    const R = 52, C = 2 * Math.PI * R; let acc = 0;
+    html += '<div class="note chart"><svg viewBox="0 0 140 140" width="160" height="160"><g transform="rotate(-90 70 70)">' + parts.map(x => {
+      const len = x.sum / all * C, seg = '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="' + x.cat.color + '" stroke-width="24" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '" stroke-dashoffset="' + (-acc).toFixed(2) + '"/>';
+      acc += len; return seg;
+    }).join('') + '</g><text x="70" y="68" text-anchor="middle" font-size="17" font-weight="800" fill="currentColor">' + Math.round(all).toLocaleString('ru-RU') + '</text>' +
+      '<text x="70" y="84" text-anchor="middle" font-size="10" font-weight="600" fill="#8a8a96">BYN</text></svg><div class="legend">' +
+      parts.map(x => '<button class="lg" data-act="cat" data-id="' + x.cat.id + '"><i style="background:' + x.cat.color + '"></i><span>' + x.cat.emoji + ' ' + esc(x.cat.name) + '</span><em>' + Math.round(x.sum / all * 100) + '%</em><b>' + byn(x.sum) + '</b></button>').join('') +
+      '</div><button class="xfer" style="margin-top:4px" data-act="catnew">+ Новая категория</button></div>';
+  }
   html += '<div class="sub">Переменные · только ' + mName(k).toLowerCase() + '</div>' + (vars.length
-    ? vars.map(x => finRow({ act: 'edit', id: 'var:' + x.id, emo: '🛒', name: x.name, amt: byn(x.amount) })).join('')
+    ? vars.map(x => finRow({ act: 'edit', id: 'var:' + x.id, emo: x.cat ? catOf(x.cat).emoji : '🛒', name: x.name, meta: catOf(x.cat).name, amt: byn(x.amount) })).join('')
     : '<div class="note" style="margin-top:0;color:var(--muted)">Пока пусто. Разовые траты месяца добавляются кнопкой внизу.</div>');
-  const fixedRows = fixed.map(x => finRow({ act: 'edit', id: 'fix:' + x.id, emo: '📌', name: x.name, amt: byn(x.amount) }));
+  const fixedRows = fixed.map(x => finRow({ act: 'edit', id: 'fix:' + x.id, emo: x.cat ? catOf(x.cat).emoji : '📌', name: x.name, meta: catOf(x.cat).name, amt: byn(x.amount) }));
   if (subMonth) fixedRows.push(finRow({ emo: '📱', name: 'Подписки', meta: 'сумма из списка ниже', amt: byn(subMonth * f.rate) }));
   html += section('Постоянные · идут каждый месяц, пока не уберёшь', fixedRows);
   html += section('Подписки · ' + usd(subMonth) + ' в месяц' + (subYear ? ' · годовые тарифы ' + usd(subYear) : ''), subs.map(s => finRow({
@@ -257,11 +281,36 @@ function incomeForm(k, it) {
 function simpleForm(list, it, o) {
   formSheet({
     title: it ? o.edit : o.add, ok: it ? 'Сохранить' : 'Добавить',
-    fields: [{ key: 'name', ph: o.namePh, value: it && it.name }, { key: 'amount', ph: o.amountPh, mode: 'num', value: it && it.amount }],
-    valid: v => !!v.name && parseNum(v.amount) >= 0,
-    save: v => { const data = { name: v.name, amount: parseNum(v.amount) }; if (it) Object.assign(it, data); else list.push(Object.assign({ id: newId() }, data, o.from ? { from: o.from } : {})); },
+    fields: [{ key: 'name', ph: o.namePh, value: it && it.name }, { key: 'amount', ph: o.amountPh, mode: 'num', value: it && it.amount }]
+      .concat(o.cats ? [{ key: 'newCat', ph: 'Название новой категории', after: true }] : []),
+    chips: o.cats ? [{ key: 'cat', value: it && it.cat ? catOf(it.cat).id : 'none',
+      items: [['none', 'Без категории']].concat(state.fin.cats.map(c => [c.id, c.emoji + ' ' + esc(c.name)]), [['new', '＋ Новая']]) }] : null,
+    valid: v => !!v.name && parseNum(v.amount) >= 0 && (v.cat !== 'new' || !!v.newCat),
+    save: v => { const data = { name: v.name, amount: parseNum(v.amount) };
+      if (o.cats) data.cat = v.cat === 'new' ? addCat(v.newCat, '🏷️').id : v.cat === 'none' ? null : v.cat; if (it) Object.assign(it, data); else list.push(Object.assign({ id: newId() }, data, o.from ? { from: o.from } : {})); },
     del: it ? () => { if (o.stop) stopItem(list, it); else list.splice(list.indexOf(it), 1); } : null,
     delLabel: o.stop ? 'Больше не плачу, убрать с этого месяца' : null
+  });
+  if (o.cats) {
+    const box = $('ff_newCat'), sync = () => { box.style.display = form.cat === 'new' ? '' : 'none'; };
+    sync();
+    sheet.querySelector('[data-group="cat"]').addEventListener('click', () => setTimeout(() => { sync(); if (form.cat === 'new') box.focus(); }, 0));
+  }
+}
+function addCat(name, emoji) {
+  const f = state.fin, c = { id: newId(), name, emoji, color: PALETTE[f.cats.length % PALETTE.length] };
+  f.cats.push(c);
+  return c;
+}
+function catForm(it) {
+  const f = state.fin;
+  formSheet({
+    title: it ? 'Категория' : 'Новая категория', ok: it ? 'Сохранить' : 'Добавить',
+    fields: [{ key: 'name', ph: 'Название, например кафе', value: it && it.name }],
+    chips: [{ key: 'emoji', value: it ? it.emoji : '🏷️', items: CAT_EMOJI.map(e => [e, e]) }],
+    valid: v => !!v.name,
+    save: v => { if (it) { it.name = v.name; it.emoji = v.emoji; } else addCat(v.name, v.emoji); },
+    del: it && it.id !== 'subs' ? () => { f.cats.splice(f.cats.indexOf(it), 1); } : null
   });
 }
 function subForm(it) {
@@ -310,8 +359,8 @@ function finAdd() {
     valid: () => true,
     save: v => { setTimeout(() => {
       if (v.kind === 'sub') subForm();
-      else if (v.kind === 'fix') simpleForm(f.fixed, null, { add: 'Постоянный расход · каждый месяц', namePh: 'Название, например маникюр', amountPh: 'Сумма в месяц, BYN', from: finMonth });
-      else { const m = monMake(finMonth); m.costs = m.costs || []; simpleForm(m.costs, null, { add: 'Расход · ' + mName(finMonth).toLowerCase(), namePh: 'На что, например заказ на ВБ', amountPh: 'Сумма, BYN' }); }
+      else if (v.kind === 'fix') simpleForm(f.fixed, null, { add: 'Постоянный расход · каждый месяц', namePh: 'Название, например маникюр', amountPh: 'Сумма в месяц, BYN', from: finMonth, cats: true });
+      else { const m = monMake(finMonth); m.costs = m.costs || []; simpleForm(m.costs, null, { add: 'Расход · ' + mName(finMonth).toLowerCase(), namePh: 'На что, например заказ на ВБ', amountPh: 'Сумма, BYN', cats: true }); }
     }, 300); }
   });
 }
@@ -319,6 +368,8 @@ function finAdd() {
 function finAct(act, id) {
   const f = state.fin, L = f.loan;
   if (act === 'sub') { finSub = id; buzz('light'); render(); window.scrollTo(0, 0); }
+  else if (act === 'catnew') catForm();
+  else if (act === 'cat') { if (id !== 'none') catForm(f.cats.find(c => c.id === id)); }
   else if (act === 'mprev' || act === 'mnext') { finMonth = mShift(finMonth, act === 'mprev' ? -1 : 1); buzz('light'); render(); }
   else if (act === 'repeat') {
     const prev = monGet(mShift(finMonth, -1)), m = monMake(finMonth);
@@ -356,8 +407,8 @@ function finAct(act, id) {
     if (kind === 'inc') incomeForm(finMonth, by(monGet(finMonth).items));
     else if (kind === 'acc') simpleForm(f.accounts, by(f.accounts), { edit: 'Изменить счёт', namePh: 'Название', amountPh: 'Сумма, $' });
     else if (kind === 'exp') simpleForm(f.expected, by(f.expected), { edit: 'Ожидаемые деньги', namePh: 'Название', amountPh: 'Сумма, $' });
-    else if (kind === 'fix') simpleForm(f.fixed, by(f.fixed), { edit: 'Постоянный расход', namePh: 'Название', amountPh: 'Сумма в месяц, BYN', stop: true });
-    else if (kind === 'var') { const list = monMake(finMonth).costs; simpleForm(list, by(list), { edit: 'Изменить расход', namePh: 'На что', amountPh: 'Сумма, BYN' }); }
+    else if (kind === 'fix') simpleForm(f.fixed, by(f.fixed), { edit: 'Постоянный расход', namePh: 'Название', amountPh: 'Сумма в месяц, BYN', stop: true, cats: true });
+    else if (kind === 'var') { const list = monMake(finMonth).costs; simpleForm(list, by(list), { edit: 'Изменить расход', namePh: 'На что', amountPh: 'Сумма, BYN', cats: true }); }
     else if (kind === 'sub') subForm(by(f.subs));
     else if (kind === 'pay') payForm(by(L.payments));
     else if (kind === 'sav') { const m = monGet(key); formSheet({
