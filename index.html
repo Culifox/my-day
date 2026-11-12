@@ -108,7 +108,7 @@
   body.editing .row .check { display: none; }
   body.editing .row .del { display: block; }
 
-  .seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--line); border-radius: 14px; padding: 3px; margin-bottom: 14px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--line); border-radius: 14px; padding: 3px; margin-bottom: 14px; }
   .seg button { padding: 9px 0; border-radius: 11px; font-size: 13px; font-weight: 600; color: var(--muted); }
   .seg button.cur { background: var(--card); color: var(--text); box-shadow: 0 2px 8px -4px rgba(0,0,0,.3); }
   .mnav { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 12px; }
@@ -143,7 +143,7 @@
 
   .tabs {
     position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto; z-index: 6;
-    display: grid; grid-template-columns: repeat(4, 1fr);
+    display: grid; grid-template-columns: repeat(5, 1fr);
     background: var(--card); border-top: 1px solid var(--line);
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
   }
@@ -195,7 +195,7 @@
   body[data-tab="money"] { --tone: var(--mint); }
   body[data-tab="money"][data-sub="savings"] { --tone: var(--yellow); }
   body[data-tab="money"][data-sub="costs"] { --tone: var(--peach); }
-  body[data-tab="money"][data-sub="loan"] { --tone: var(--blue); }
+  body[data-tab="loan"] { --tone: var(--blue); }
   body { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
   .top h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
   .top .edit { color: var(--text); background: var(--card); padding: 8px 14px; border-radius: 99px; font-size: 14px; }
@@ -229,7 +229,7 @@
   .ghost { color: var(--text); border-color: #cfcfdc; border-radius: 99px; }
   .add { border-radius: 99px; bottom: calc(92px + env(safe-area-inset-bottom)); box-shadow: 0 10px 24px -12px rgba(0,0,0,.45); }
   .tabs { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); max-width: 456px; border-top: 0; border-radius: 26px; padding: 8px; box-shadow: 0 10px 30px -14px rgba(40,40,80,.4); }
-  .tabs button { border-radius: 18px; padding: 7px 0; }
+  .tabs button { border-radius: 18px; padding: 7px 0; font-size: 10.5px; }
   .tabs button.cur { color: var(--text); background: var(--tone); }
   .tabs button.cur .i { transform: none; }
   .sheet { border-radius: 32px 32px 0 0; }
@@ -266,6 +266,7 @@ const TABS = [
   { id: 'ideas',  icon: '💡', label: 'Контент' },
   { id: 'tasks',  icon: '✅', label: 'Задачи' },
   { id: 'money',  icon: '💰', label: 'Деньги' },
+  { id: 'loan',   icon: '🏠', label: 'Кредит' },
 ];
 const EMOJIS = ['💧','🚶‍♀️','📚','🧘‍♀️','🏋️‍♀️','🥗','😴','✍️','🇬🇧','💊','🧴','🎨','💻','📵','🌿','💰'];
 const FORMATS = { reels: ['🎬', 'Рилс'], post: ['📝', 'Пост'], stories: ['📱', 'Сторис'], carousel: ['🖼', 'Карусель'] };
@@ -411,11 +412,11 @@ function render() {
   document.body.dataset.tab = tab;
   document.body.dataset.sub = tab === 'money' ? finSub : '';
   $('tabs').innerHTML = TABS.map(t => '<button class="' + (t.id === tab ? 'cur' : '') + '" data-tab="' + t.id + '"><span class="i">' + t.icon + '</span>' + t.label + '</button>').join('');
-  ({ habits: viewHabits, ideas: viewIdeas, tasks: viewTasks, money: viewMoney })[tab]();
+  ({ habits: viewHabits, ideas: viewIdeas, tasks: viewTasks, money: viewMoney, loan: viewLoanTab })[tab]();
   view.insertAdjacentHTML('beforeend', '<button class="xfer" data-act="xfer">⇅ Перенос данных</button>');
   $('addBtn').textContent = { habits: '+ Добавить привычку', ideas: '+ Добавить идею', tasks: '+ Добавить задачу',
-    money: finAddLabel() }[tab];
-  const count = { habits: state.habits.length, ideas: state.ideas.length, tasks: state.tasks.length, money: 0 }[tab];
+    money: finAddLabel(), loan: '+ Внести платёж' }[tab];
+  const count = { habits: state.habits.length, ideas: state.ideas.length, tasks: state.tasks.length, money: 0, loan: 0 }[tab];
   if (!count) document.body.classList.remove('editing');
   $('editBtn').style.visibility = count ? 'visible' : 'hidden';
   $('editBtn').textContent = document.body.classList.contains('editing') ? 'Готово' : 'Изменить';
@@ -436,7 +437,7 @@ view.onclick = e => {
   if (!t) return;
   const id = t.dataset.id, act = t.dataset.act;
   if (act === 'xfer') return openXfer();
-  if (tab === 'money') return finAct(act, id);
+  if (tab === 'money' || tab === 'loan') return finAct(act, id);
   if (act === 'day') { sel = id; buzz('light'); render(); }
   else if (act === 'goal') openSheet('goal');
   else if (act === 'del') remove(id);
@@ -527,7 +528,7 @@ function valid() {
 }
 function check() { const b = $('saveBtn'); if (b) b.disabled = !valid(); }
 
-$('addBtn').onclick = () => tab === 'money' ? finAdd() : openSheet(tab);
+$('addBtn').onclick = () => tab === 'money' ? finAdd() : tab === 'loan' ? loanAdd() : openSheet(tab);
 $('shade').onclick = closeSheet;
 sheet.oninput = e => {
   if (sheetKind === 'tasks' && e.target.id === 'f2') {

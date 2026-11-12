@@ -75,10 +75,14 @@ const stat = (value, label, cls, act) => '<div class="stat sm' + (cls ? ' ' + cl
 /* ---------- экран ---------- */
 function viewMoney() {
   $('title').textContent = 'Деньги';
-  const subs = [['income', 'Доход'], ['savings', 'Накопления'], ['costs', 'Расходы'], ['loan', 'Кредит']];
+  if (finSub === 'loan') finSub = 'income';
+  const subs = [['income', 'Доход'], ['savings', 'Накопления'], ['costs', 'Расходы']];
   view.innerHTML = '<div class="seg">' + subs.map(s => '<button class="' + (s[0] === finSub ? 'cur' : '') + '" data-act="sub" data-id="' + s[0] + '">' + s[1] + '</button>').join('') + '</div>' +
-    ({ income: viewIncome, savings: viewSavings, costs: viewCosts, loan: viewLoan })[finSub]();
+    ({ income: viewIncome, savings: viewSavings, costs: viewCosts })[finSub]();
 }
+// кредит живёт отдельной вкладкой в нижнем меню
+function viewLoanTab() { $('title').textContent = 'Кредит'; view.innerHTML = viewLoan(); }
+function loanAdd() { if (state.fin.loan.balance) payForm(); else finAct('loanset'); }
 const finAddLabel = () => ({ income: '+ Добавить доход', savings: '+ Добавить счёт', costs: '+ Добавить расход', loan: '+ Внести платёж' })[finSub];
 
 function viewIncome() {
