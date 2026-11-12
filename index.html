@@ -345,6 +345,7 @@
 
 <script src="fin.js"></script>
 <script src="extra.js"></script>
+<script src="sync.js"></script>
 <script>
 const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#eeeef4'); tg.setBackgroundColor('#eeeef4'); } catch (e) {} }
@@ -412,6 +413,7 @@ function load() {
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  syncTouch();
 }
 
 function row(o) {
@@ -674,12 +676,13 @@ function openXfer() {
     '<textarea id="xText" placeholder="Вставь сюда скопированный текст"></textarea>' +
     '<button class="save" id="xLoad">Загрузить из текста</button>' +
     '<button class="kill" id="xPick" style="color:var(--text)">или выбрать файл с данными</button>' +
-    '<input type="file" id="xFile" accept=".json,.txt,application/json,text/plain" hidden><div class="lab" id="xMsg"></div>';
+    '<input type="file" id="xFile" accept=".json,.txt,application/json,text/plain" hidden><div class="lab" id="xMsg"></div>' + syncHtml();
   $('xFile').onchange = e => { const f = e.target.files[0]; if (f) f.text().then(xferApply); };
   document.body.classList.remove('editing');
   document.body.classList.add('adding');
 }
 function xferClick(id) {
+  if (syncClick(id)) return;
   if (id === 'xCopy') {
     const raw = JSON.stringify(state), box = $('xText');
     const shown = () => { box.value = raw; box.select(); $('xMsg').textContent = 'Текст ниже выделен: скопируй его и вставь на другом устройстве.'; };
@@ -705,6 +708,7 @@ function xferApply(raw) {
 load();
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+syncStart();
 </script>
 </body>
 </html>
