@@ -22,7 +22,11 @@ const CAT_NONE = { id: 'none', name: 'Без категории', emoji: '❔', 
 const defaultCats = () => [['subs', 'Подписки', '📱'], ['food', 'Еда', '🍎'], ['beauty', 'Красота', '💅'], ['home', 'Дом', '🏠'], ['clothes', 'Одежда', '👗'], ['study', 'Обучение', '📚']]
   .map((c, i) => ({ id: c[0], name: c[1], emoji: c[2], color: PALETTE[i] }));
 const catOf = id => state.fin.cats.find(c => c.id === id) || CAT_NONE;
-function finMigrate() { if (!state.fin.cats) state.fin.cats = defaultCats(); }
+function finMigrate() {
+  if (!state.fin.cats) state.fin.cats = defaultCats();
+  // раньше было два поля «я» и «Лёша», теперь одна сумма за месяц
+  Object.values(state.fin.months).forEach(m => { if (m.saveLesha != null) { m.saveMe = (m.saveMe || 0) + m.saveLesha; } delete m.saveLesha; });
+}
 
 function finEmpty() {
   return { months: {}, goal: null, expected: [], accounts: [], fixed: [], subs: [], cats: defaultCats(), rate: 3,
@@ -35,8 +39,7 @@ function finImport(seed) {
   Object.keys(seed.months || {}).forEach(k => {
     const s = seed.months[k];
     f.months[k] = { items: (s.items || []).map(i => ({ id: newId(), name: i[0], amount: i[1], gift: i[2] === 'gift', tax: 0 })),
-      goal: s.goal || null, taxFlat: s.taxFlat || null, saveMe: s.saveMe == null ? null : s.saveMe,
-      saveLesha: s.saveLesha == null ? null : s.saveLesha, plan: s.plan || null };
+      goal: s.goal || null, taxFlat: s.taxFlat || null, saveMe: s.saveMe == null && s.saveLesha == null ? null : (s.saveMe || 0) + (s.saveLesha || 0), plan: s.plan || null };
   });
   f.goal = seed.goal || null;
   f.expected = (seed.expected || []).map(x => ({ id: newId(), name: x[0], amount: x[1] }));
@@ -119,15 +122,13 @@ function viewSavings() {
   }
   html += section('Ожидается · в накопленное не входит', f.expected.map(e => finRow({ act: 'edit', id: 'exp:' + e.id, emo: '⏳', name: e.name, amt: '~' + usd(e.amount) })));
   html += section('Счета · всего ' + usd(saved), f.accounts.map(a => finRow({ act: 'edit', id: 'acc:' + a.id, emo: '🏦', name: a.name, amt: usd(a.amount) })));
-  const keys = Object.keys(f.months).filter(k => { const m = f.months[k]; return m.saveMe != null || m.saveLesha != null || m.plan; });
+  const keys = Object.keys(f.months).filter(k => { const m = f.months[k]; return m.saveMe != null || m.plan; });
   if (!keys.includes(nowMonth())) keys.push(nowMonth());
   html += section('По месяцам · нажми, чтобы вписать', keys.sort().reverse().map(k => {
     const m = monGet(k), parts = [];
-    parts.push('я ' + (m.saveMe == null ? '—' : '+' + usd(m.saveMe)));
-    parts.push('Лёша ' + (m.saveLesha == null ? '—' : '+' + usd(m.saveLesha)));
+    parts.push(m.saveMe == null ? 'не вписано' : 'отложено');
     if (m.plan) parts.push('планка ' + usd(m.plan));
-    const both = (m.saveMe || 0) + (m.saveLesha || 0);
-    return finRow({ act: 'edit', id: 'sav:' + k, emo: '📅', name: mName(k), meta: parts.join(' · '), amt: both ? '+' + usd(both) : '' });
+    return finRow({ act: 'edit', id: 'sav:' + k, emo: '📅', name: mName(k), meta: parts.join(' · '), amt: m.saveMe ? '+' + usd(m.saveMe) : '' });
   }));
   return html;
 }
@@ -242,10 +243,10 @@ function viewLoan() {
 function formSheet(cfg) {
   formCfg = cfg; sheetKind = 'form'; form = {};
   const input = f => (f.lab ? '<div class="lab">' + f.lab + '</div>' : '') + '<input id="ff_' + f.key + '" ' +
-    (f.mode === 'num' ? 'inputmode="decimal"' : f.mode === 'month' ? 'type="month"' : f.mode === 'date' ? 'type="date"' : 'maxlength="60"') +
+    (f.mode === 'num' ? 'inputmode="decimal"' : f.mode === 'month' ? 'type="month"' : f.mode === 'date' ? 'type="date"' : 'maxlength="' + (f.max || 60) + '"') +
     ' placeholder="' + esc(f.ph || '') + '" autocomplete="off" value="' + esc(f.value == null ? '' : f.value) + '">';
   let html = '<h2>' + esc(cfg.title) + '</h2>' + cfg.fields.filter(f => !f.after).map(input).join('');
-  (cfg.chips || []).forEach(c => { form[c.key] = c.value; html += chips(c.key, c.items); });
+  (cfg.chips || []).forEach(c => { form[c.key] = c.value; html += (c.lab ? '<div class="lab">' + c.lab + '</div>' : '') + chips(c.key, c.items); });
   html += cfg.fields.filter(f => f.after).map(input).join('') + '<button class="save" id="saveBtn">' + (cfg.ok || 'Сохранить') + '</button>';
   if (cfg.del) html += '<button class="kill" id="killBtn">' + (cfg.delLabel || 'Удалить') + '</button>';
   sheet.innerHTML = html;
@@ -417,9 +418,9 @@ function finAct(act, id) {
     else if (kind === 'pay') payForm(by(L.payments));
     else if (kind === 'sav') { const m = monGet(key); formSheet({
       title: 'Отложено · ' + mName(key).toLowerCase(), quiet: true,
-      fields: [{ key: 'me', lab: 'Отложила я, $', mode: 'num', value: m.saveMe }, { key: 'lesha', lab: 'Отложил Лёша, $', mode: 'num', value: m.saveLesha },
+      fields: [{ key: 'me', lab: 'Отложено за месяц, $', mode: 'num', value: m.saveMe },
         { key: 'plan', lab: 'Планка: сколько всего должно быть к концу месяца, $', mode: 'num', value: m.plan }],
-      valid: v => optNum(v.me) && optNum(v.lesha) && optNum(v.plan),
-      save: v => { const x = monMake(key); x.saveMe = numOrNull(v.me); x.saveLesha = numOrNull(v.lesha); x.plan = numOrNull(v.plan); } }); }
+      valid: v => optNum(v.me) && optNum(v.plan),
+      save: v => { const x = monMake(key); x.saveMe = numOrNull(v.me); x.plan = numOrNull(v.plan); } }); }
   }
 }

@@ -196,6 +196,87 @@
   body[data-tab="money"][data-sub="savings"] { --tone: var(--yellow); }
   body[data-tab="money"][data-sub="costs"] { --tone: var(--peach); }
   body[data-tab="loan"] { --tone: var(--blue); }
+  body[data-tab="focus"] { --tone: var(--lilac); }
+  body[data-tab="checks"] { --tone: var(--peach); }
+  body[data-tab="bdays"] { --tone: var(--pink); }
+  body[data-tab="lists"] { --tone: var(--mint); }
+  body[data-tab="diary"] { --tone: var(--blue); }
+  body[data-tab="more"] { --tone: var(--line); }
+  .add.hide { display: none; }
+  .hero .num small { font-size: 22px; font-weight: 700; letter-spacing: 0; }
+  .hero .bname { font-size: 34px; line-height: 1.1; overflow-wrap: anywhere; margin-top: 4px; }
+  .banner { display: block; width: 100%; text-align: left; background: #fbdcee; border-radius: 20px; padding: 13px 16px; font-weight: 700; font-size: 14px; margin-bottom: 12px; }
+  .row.soon { background: #fbdcee; }
+  .row .amt { font-size: 14px; }
+
+  /* «Ещё» и настройка панели */
+  .mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mcard { position: relative; background: var(--card); border-radius: 24px; padding: 14px; text-align: left; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-height: 112px; cursor: pointer; }
+  .mcard .mi { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 23px; }
+  .mcard b { font-size: 15px; line-height: 1.2; }
+  .mcard em { font-style: normal; font-size: 12px; color: var(--muted); font-weight: 600; margin-top: -6px; }
+  .mcard .del { display: none; position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; background: #fbe0dd; color: var(--bad); font-weight: 700; }
+  body.editing .mcard .del { display: block; }
+  .brow { display: flex; align-items: center; gap: 6px; background: var(--bg); border-radius: 16px; padding: 7px 7px 7px 14px; margin-bottom: 6px; }
+  .brow span { flex: 1; font-weight: 600; font-size: 15px; }
+  .brow button { width: 36px; height: 36px; border-radius: 50%; background: var(--card); font-weight: 800; font-size: 16px; }
+  .brow button:disabled { opacity: .3; }
+  .brow .bminus { background: #fbe0dd; color: var(--bad); }
+  .brow .bplus { background: var(--text); color: #fff; }
+
+  /* привычки карточками */
+  .hcard { background: var(--card); border-radius: 24px; padding: 12px 12px 14px 14px; margin-bottom: 10px; }
+  .hhead { display: flex; align-items: center; gap: 12px; }
+  .hhead .emo { font-size: 26px; width: 46px; height: 46px; display: grid; place-items: center; background: #fcefb4; border-radius: 16px; flex: none; }
+  .hcard:nth-of-type(4n+1) .hhead .emo { background: #fbdcee; }
+  .hcard:nth-of-type(4n+2) .hhead .emo { background: #e4e1fb; }
+  .hcard:nth-of-type(4n+3) .hhead .emo { background: #d8f1e8; }
+  .hhead .info { flex: 1; min-width: 0; }
+  .hhead .name { font-size: 16px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  .hhead .meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .hhead .del { display: none; width: 40px; height: 40px; border-radius: 50%; background: #fbe0dd; color: var(--bad); font-size: 18px; font-weight: 700; flex: none; }
+  body.editing .hhead .del { display: block; }
+  .hweek { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; }
+  .hd { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .hd span { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .hd i { font-style: normal; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--bg); transition: transform .12s; }
+  .hd:active i { transform: scale(.9); }
+  .hd.now i { box-shadow: inset 0 0 0 2px var(--text); }
+  .hd.on i { background: var(--text); color: #fff; box-shadow: none; }
+
+  /* помодоро */
+  .hero.focus { display: block; text-align: center; padding: 18px 16px 22px; }
+  .fhead b { display: block; font-size: 18px; }
+  .fhead span { font-size: 13px; color: rgba(27,27,31,.6); font-weight: 600; }
+  .fdots { display: flex; justify-content: center; gap: 6px; margin: 10px 0 2px; }
+  .fdots i { width: 18px; height: 5px; border-radius: 3px; background: rgba(27,27,31,.15); }
+  .fdots i.cur { background: rgba(27,27,31,.45); }
+  .fdots i.on { background: var(--text); }
+  .fring { position: relative; width: 220px; height: 220px; margin: 4px auto 6px; }
+  .fring svg { width: 100%; height: 100%; display: block; }
+  .ftrack { fill: none; stroke: rgba(255,255,255,.6); stroke-width: 12; }
+  .farc { fill: none; stroke: var(--text); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset .5s linear; }
+  .ftime { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ftime b { font-size: 52px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .ftime span { font-size: 13px; color: rgba(27,27,31,.6); font-weight: 600; }
+  .flabel { width: 100%; max-width: 280px; font: inherit; font-size: 15px; text-align: center; background: rgba(255,255,255,.7); border: 0; border-radius: 99px; padding: 11px 16px; outline: none; color: var(--text); margin: 4px 0 14px; user-select: text; -webkit-user-select: text; }
+  .fbtns { display: flex; justify-content: center; align-items: center; gap: 22px; }
+  .fplay { width: 76px; height: 76px; border-radius: 50%; background: var(--text); color: #fff; font-size: 26px; }
+  .fsm { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.75); font-size: 16px; }
+  .sounds { display: flex; gap: 8px; overflow-x: auto; margin-top: 12px; padding-bottom: 2px; scrollbar-width: none; }
+  .sounds::-webkit-scrollbar { display: none; }
+  .sounds button { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--card); border-radius: 18px; padding: 10px 12px; min-width: 66px; }
+  .sounds button i { font-style: normal; font-size: 20px; }
+  .sounds button.cur { background: var(--text); color: #fff; }
+
+  /* списки и дневник */
+  .back { font-weight: 700; font-size: 15px; padding: 2px 4px 12px; }
+  .row.li { padding: 14px 12px 14px 18px; }
+  .row.li .emo, .row.li .meta { display: none; }
+  .dq { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.25; margin-top: 8px; }
+  .dtext { font-size: 15px; line-height: 1.45; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+  .note textarea { width: 100%; min-height: 96px; font: inherit; font-size: 15px; color: var(--text); background: var(--bg); border: 0; border-radius: 16px; padding: 12px 14px; outline: none; resize: none; user-select: text; -webkit-user-select: text; }
+  .vsave { width: 100%; padding: 14px; border-radius: 99px; background: var(--text); color: #fff; font-weight: 700; margin-top: 10px; }
   body { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
   .top h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
   .top .edit { color: var(--text); background: var(--card); padding: 8px 14px; border-radius: 99px; font-size: 14px; }
@@ -255,6 +336,7 @@
 <div class="sheet" id="sheet"></div>
 
 <script src="fin.js"></script>
+<script src="extra.js"></script>
 <script>
 const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#eeeef4'); tg.setBackgroundColor('#eeeef4'); } catch (e) {} }
@@ -317,7 +399,8 @@ function load() {
   state.ideas = state.ideas || [];
   state.tasks = state.tasks || [];
   state.fin = state.fin || finEmpty(); delete state.money; finMigrate();
-  try { const t = localStorage.getItem(KEY + '-tab'); if (TABS.some(x => x.id === t)) tab = t; } catch (e) {}
+  extraMigrate();
+  try { const t = localStorage.getItem(KEY + '-tab'); if (MODS()[t]) tab = t; } catch (e) {}
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
@@ -411,12 +494,17 @@ function viewTasks() {
 function render() {
   document.body.dataset.tab = tab;
   document.body.dataset.sub = tab === 'money' ? finSub : '';
-  $('tabs').innerHTML = TABS.map(t => '<button class="' + (t.id === tab ? 'cur' : '') + '" data-tab="' + t.id + '"><span class="i">' + t.icon + '</span>' + t.label + '</button>').join('');
-  ({ habits: viewHabits, ideas: viewIdeas, tasks: viewTasks, money: viewMoney, loan: viewLoanTab })[tab]();
+  const M = MODS(), m = M[tab] || M.habits;
+  const bar = barIds().concat('more'), cur = bar.includes(tab) ? tab : 'more';
+  $('tabs').style.gridTemplateColumns = 'repeat(' + bar.length + ', 1fr)';
+  $('tabs').innerHTML = bar.map(id => { const t = modInfo(id); return '<button class="' + (id === cur ? 'cur' : '') + '" data-tab="' + id + '"><span class="i">' + t.icon + '</span>' + (t.short || t.label) + '</button>'; }).join('');
+  m.view();
+  if (tab !== 'bdays') bdayBanner();
   view.insertAdjacentHTML('beforeend', '<button class="xfer" data-act="xfer">⇅ Перенос данных</button>');
-  $('addBtn').textContent = { habits: '+ Добавить привычку', ideas: '+ Добавить идею', tasks: '+ Добавить задачу',
-    money: finAddLabel(), loan: '+ Внести платёж' }[tab];
-  const count = { habits: state.habits.length, ideas: state.ideas.length, tasks: state.tasks.length, money: 0, loan: 0 }[tab];
+  const add = typeof m.add === 'function' ? m.add() : m.add;
+  $('addBtn').textContent = add || '';
+  $('addBtn').classList.toggle('hide', !add);
+  const count = m.count();
   if (!count) document.body.classList.remove('editing');
   $('editBtn').style.visibility = count ? 'visible' : 'hidden';
   $('editBtn').textContent = document.body.classList.contains('editing') ? 'Готово' : 'Изменить';
@@ -425,10 +513,7 @@ function render() {
 $('tabs').onclick = e => {
   const b = e.target.closest('[data-tab]');
   if (!b) return;
-  tab = b.dataset.tab;
-  try { localStorage.setItem(KEY + '-tab', tab); } catch (err) {}
-  document.body.classList.remove('editing');
-  buzz('light'); render(); window.scrollTo(0, 0);
+  goTab(b.dataset.tab);
 };
 $('editBtn').onclick = () => { document.body.classList.toggle('editing'); render(); };
 
@@ -437,7 +522,10 @@ view.onclick = e => {
   if (!t) return;
   const id = t.dataset.id, act = t.dataset.act;
   if (act === 'xfer') return openXfer();
-  if (tab === 'money' || tab === 'loan') return finAct(act, id);
+  if (act === 'go') return goTab(id);
+  if (act === 'hday') return habitDay(id);
+  const m = MODS()[tab];
+  if (m && m.act) return m.act(act, id);
   if (act === 'day') { sel = id; buzz('light'); render(); }
   else if (act === 'goal') openSheet('goal');
   else if (act === 'del') remove(id);
@@ -518,7 +606,7 @@ function closeSheet() {
   if (document.activeElement) document.activeElement.blur();
 }
 function valid() {
-  if (sheetKind === 'xfer') return true;
+  if (sheetKind === 'xfer' || sheetKind === 'bar') return true;
   if (sheetKind === 'form') return !!formCfg.valid(formValues());
   const a = $('f1').value.trim();
   if (sheetKind === 'entry') return parseNum(a) > 0;
@@ -528,7 +616,7 @@ function valid() {
 }
 function check() { const b = $('saveBtn'); if (b) b.disabled = !valid(); }
 
-$('addBtn').onclick = () => tab === 'money' ? finAdd() : tab === 'loan' ? loanAdd() : openSheet(tab);
+$('addBtn').onclick = () => { const m = MODS()[tab]; if (m && m.onAdd) m.onAdd(); };
 $('shade').onclick = closeSheet;
 sheet.oninput = e => {
   if (sheetKind === 'tasks' && e.target.id === 'f2') {
@@ -542,6 +630,7 @@ sheet.onclick = e => {
   if (e.target.id === 'saveBtn') return submit();
   if (e.target.id === 'killBtn') return formKill();
   if (sheetKind === 'xfer') return xferClick(e.target.id);
+  if (sheetKind === 'bar') return barClick(e.target);
   const b = e.target.closest('[data-v]');
   if (!b) return;
   const group = b.parentNode.dataset.group;
@@ -553,7 +642,12 @@ sheet.onclick = e => {
 
 function submit() {
   if (!valid()) return;
-  if (sheetKind === 'form') { formCfg.save(formValues()); buzz('medium'); save(); closeSheet(); render(); return; }
+  if (sheetKind === 'form') {
+    formCfg.save(formValues()); buzz('medium'); save(); render();
+    // для списков форма остаётся открытой: можно вносить пункты один за другим
+    if (formCfg.keep) { const i = $('ff_' + formCfg.keep); i.value = ''; i.focus(); check(); } else closeSheet();
+    return;
+  }
   const a = $('f1').value.trim(), b = $('f2') ? $('f2').value.trim() : '', today = keyOf(new Date());
   if (sheetKind === 'habits') state.habits.push({ id: newId(), name: a, emoji: form.emoji });
   else if (sheetKind === 'ideas') state.ideas.push({ id: newId(), text: a, format: form.format, date: b || null, done: false });
