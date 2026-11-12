@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Мой день</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fff6ec;
+    --card: #ffffff;
+    --text: #2a1a12;
+    --muted: #9a857a;
+    --line: #f3e3d5;
+    --accent: #ff6a2b;
+    --accent2: #ff3d81;
+    --done: #22b573;
+    --done-bg: #e8f8f0;
+    --bad: #e03131;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: 16px 16px calc(170px + env(safe-area-inset-bottom));
+    max-width: 480px; margin: 0 auto;
+    user-select: none; -webkit-user-select: none;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+
+  .top { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 4px 14px; }
+  .top h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; }
+  .top .edit { color: var(--accent); font-weight: 600; font-size: 15px; padding: 6px 2px; }
+
+  .hero {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color: #fff; border-radius: 28px; padding: 20px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 14px 30px -14px rgba(255, 80, 60, .7);
+  }
+  .hero .num { font-size: 60px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+  .hero .lbl { font-size: 15px; opacity: .92; margin-top: 6px; font-weight: 500; }
+  .hero .fire { font-size: 58px; line-height: 1; filter: drop-shadow(0 6px 10px rgba(0,0,0,.18)); }
+  .hero .pill { margin-top: 12px; font-size: 13px; background: rgba(255,255,255,.22); display: inline-block; padding: 5px 11px; border-radius: 99px; font-weight: 600; color: #fff; }
+
+  .hero button.pill { white-space: nowrap; flex: none; }
+  .hero.money { display: block; }
+  .hero.money .goal { font-size: 15px; font-weight: 600; opacity: .92; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero.money .num { font-size: 38px; margin-top: 8px; }
+  .hero.money .of { font-size: 15px; opacity: .92; margin-top: 4px; font-weight: 500; }
+  .bar { height: 10px; background: rgba(255,255,255,.3); border-radius: 99px; overflow: hidden; margin: 16px 0 4px; }
+  .bar i { display: block; height: 100%; width: var(--w); background: #fff; border-radius: 99px; transition: width .3s ease; }
+  .hero.money .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: var(--card); border-radius: 20px; padding: 14px 12px; box-shadow: 0 4px 16px -12px rgba(120, 60, 20, .4); }
+  .stat b { display: block; font-size: 28px; letter-spacing: -0.03em; line-height: 1.1; }
+  .stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .stat.hot b { color: var(--accent); }
+  .stat.bad b { color: var(--bad); }
+
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 18px 0 8px; }
+  .day { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; border-radius: 16px; }
+  .day.sel { background: var(--card); box-shadow: 0 4px 14px -8px rgba(120, 60, 20, .35); }
+  .day .wd { font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  .day .ring {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line) 0);
+  }
+  .day .ring span {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--bg);
+    display: grid; place-items: center; font-size: 12px; font-weight: 700;
+  }
+  .day.sel .ring span { background: var(--card); }
+  .day.full .ring { background: var(--done); }
+  .day.full .ring span { background: var(--done); color: #fff; }
+
+  .sub { font-size: 13px; color: var(--muted); margin: 18px 4px 10px; font-weight: 600; }
+
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border-radius: 22px; padding: 12px 12px 12px 14px;
+    margin-bottom: 10px; width: 100%; text-align: left;
+    box-shadow: 0 4px 16px -12px rgba(120, 60, 20, .4);
+    transition: transform .12s ease, background .2s ease;
+  }
+  .row:active { transform: scale(.98); }
+  .row .emo { font-size: 26px; width: 46px; height: 46px; display: grid; place-items: center; background: var(--bg); border-radius: 15px; flex: none; }
+  .row .info { flex: 1; min-width: 0; }
+  .row .name { font-size: 16px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  .row .meta { font-size: 13px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+  .row .meta.late { color: var(--bad); font-weight: 600; }
+  .row .check {
+    width: 40px; height: 40px; border-radius: 50%; flex: none;
+    border: 2.5px solid var(--line); display: grid; place-items: center;
+    font-size: 20px; color: transparent; transition: all .18s ease;
+  }
+  .row.on { background: var(--done-bg); }
+  .row.on .check { background: var(--done); border-color: var(--done); color: #fff; transform: scale(1.06); }
+  .row.on .name { text-decoration: line-through; text-decoration-color: rgba(34,181,115,.5); }
+  .row .del { width: 40px; height: 40px; border-radius: 50%; background: #ffe3e3; color: #e03131; font-size: 18px; font-weight: 700; flex: none; display: none; }
+  .row.plain .check { display: none; }
+  .row.minus .name { color: var(--bad); }
+  body.editing .row .check { display: none; }
+  body.editing .row .del { display: block; }
+
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--line); border-radius: 14px; padding: 3px; margin-bottom: 14px; }
+  .seg button { padding: 9px 0; border-radius: 11px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .seg button.cur { background: var(--card); color: var(--text); box-shadow: 0 2px 8px -4px rgba(0,0,0,.3); }
+  .mnav { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 12px; }
+  .mnav b { font-size: 17px; }
+  .mnav button { width: 40px; height: 40px; border-radius: 50%; background: var(--card); font-size: 22px; line-height: 1; }
+  .row .amt { font-weight: 700; font-size: 15px; white-space: nowrap; flex: none; text-align: right; padding-right: 4px; }
+  .stat.sm b { font-size: 19px; }
+  .stat.sm span { display: block; margin-top: 3px; line-height: 1.25; }
+  .ghost { display: block; width: 100%; padding: 14px; border-radius: 18px; border: 2px dashed var(--line); color: var(--accent); font-weight: 700; margin: 6px 0 10px; }
+  .note { background: var(--card); border-radius: 22px; padding: 16px; font-size: 15px; line-height: 1.45; margin-top: 10px; }
+  .sheet .kill { width: 100%; padding: 14px; color: var(--bad); font-weight: 600; margin-top: 6px; }
+
+  .xfer { display: block; margin: 26px auto 0; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .sheet textarea { width: 100%; height: 90px; font: inherit; font-size: 13px; color: var(--text); background: var(--bg); border: 2px solid transparent; border-radius: 16px; padding: 12px 14px; outline: none; resize: none; margin-bottom: 10px; user-select: text; -webkit-user-select: text; }
+
+  .empty { text-align: center; color: var(--muted); padding: 34px 20px; font-size: 15px; line-height: 1.5; }
+
+  .add {
+    position: fixed; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom));
+    max-width: 448px; margin: 0 auto; z-index: 5;
+    background: var(--text); color: var(--bg); font-weight: 700; font-size: 16px;
+    padding: 15px; border-radius: 20px; box-shadow: 0 12px 26px -12px rgba(0,0,0,.5);
+  }
+
+  .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto; z-index: 6;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--card); border-top: 1px solid var(--line);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tabs button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--muted); padding: 6px 0; }
+  .tabs button .i { font-size: 22px; line-height: 1.2; filter: grayscale(1); opacity: .55; transition: all .15s; }
+  .tabs button.cur { color: var(--accent); }
+  .tabs button.cur .i { filter: none; opacity: 1; transform: scale(1.1); }
+
+  .shade { position: fixed; inset: 0; z-index: 10; background: rgba(20,10,5,.45); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto; z-index: 11;
+    background: var(--card); border-radius: 28px 28px 0 0;
+    padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform .25s cubic-bezier(.2,.8,.2,1);
+    max-height: 90vh; overflow-y: auto;
+  }
+  body.adding .shade { opacity: 1; pointer-events: auto; }
+  body.adding .sheet { transform: none; }
+  .sheet h2 { margin: 0 0 14px; font-size: 20px; }
+  .sheet input {
+    width: 100%; font: inherit; font-size: 17px; color: var(--text);
+    background: var(--bg); border: 2px solid transparent; border-radius: 16px; padding: 14px 16px; outline: none;
+    margin-bottom: 12px; min-height: 54px; -webkit-appearance: none; appearance: none;
+    user-select: text; -webkit-user-select: text;
+  }
+  .sheet input:focus { border-color: var(--accent); }
+  .sheet .lab { font-size: 13px; color: var(--muted); font-weight: 600; margin: 2px 4px 8px; }
+  .emojis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 2px 0 16px; }
+  .emojis button { font-size: 24px; aspect-ratio: 1; border-radius: 12px; }
+  .emojis button.pick { background: var(--bg); box-shadow: inset 0 0 0 2px var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+  .chips button { padding: 10px 14px; border-radius: 99px; background: var(--bg); font-size: 15px; font-weight: 600; }
+  .chips button.pick { background: var(--accent); color: #fff; }
+  .sheet .save {
+    width: 100%; padding: 16px; border-radius: 18px; font-weight: 700; font-size: 16px; color: #fff; margin-top: 4px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+  .sheet .save:disabled { opacity: .4; }
+
+  /* ---------- тема «пастель» ---------- */
+  :root {
+    --bg: #eeeef4; --card: #ffffff; --text: #1b1b1f; --muted: #8a8a96; --line: #e3e3ec;
+    --accent: #1b1b1f; --accent2: #1b1b1f; --done: #1b1b1f; --done-bg: #e2efd3; --bad: #d64545;
+    --yellow: #f9dc6b; --pink: #f4b6d9; --lilac: #cdc8f6; --blue: #bdd3f3; --mint: #b9e6d6; --peach: #fad6b8;
+    --tone: var(--yellow);
+  }
+  body[data-tab="ideas"] { --tone: var(--pink); }
+  body[data-tab="tasks"] { --tone: var(--lilac); }
+  body[data-tab="money"] { --tone: var(--mint); }
+  body[data-tab="money"][data-sub="savings"] { --tone: var(--yellow); }
+  body[data-tab="money"][data-sub="costs"] { --tone: var(--peach); }
+  body[data-tab="money"][data-sub="loan"] { --tone: var(--blue); }
+  body { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
+  .top h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
+  .top .edit { color: var(--text); background: var(--card); padding: 8px 14px; border-radius: 99px; font-size: 14px; }
+  .hero { background: var(--tone); color: var(--text); box-shadow: none; border-radius: 30px; position: relative; overflow: hidden; }
+  .hero::after { content: ''; position: absolute; right: -46px; top: -56px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.3); pointer-events: none; }
+  .hero > * { position: relative; z-index: 1; }
+  .hero .pill { background: rgba(255,255,255,.7); color: var(--text); }
+  .hero button.pill { background: var(--text); color: #fff; }
+  .hero .fire { filter: none; }
+  .bar { background: rgba(27,27,31,.12); }
+  .bar i { background: var(--text); }
+  .stat { box-shadow: none; border-radius: 22px; }
+  .stat.hot { background: var(--tone); }
+  .stat.hot b { color: var(--text); }
+  .stat.bad { background: #fbe0dd; }
+  .day.sel { box-shadow: none; }
+  .day .ring { background: conic-gradient(var(--text) calc(var(--p) * 1%), var(--line) 0); }
+  .row { box-shadow: none; border-radius: 24px; }
+  .row .emo { border-radius: 16px; background: #fcefb4; }
+  #view .row:nth-of-type(4n+2) .emo { background: #fbdcee; }
+  #view .row:nth-of-type(4n+3) .emo { background: #e4e1fb; }
+  #view .row:nth-of-type(4n) .emo { background: #d8f1e8; }
+  .row.on .emo { background: rgba(255,255,255,.7) !important; }
+  .row.on .name { text-decoration-color: rgba(27,27,31,.35); }
+  .row .del { background: #fbe0dd; color: var(--bad); }
+  .mnav button { background: var(--card); }
+  .seg { background: var(--line); border-radius: 99px; padding: 4px; }
+  .seg button { border-radius: 99px; }
+  .seg button.cur { background: var(--text); color: #fff; box-shadow: none; }
+  .note { border-radius: 24px; }
+  .ghost { color: var(--text); border-color: #cfcfdc; border-radius: 99px; }
+  .add { border-radius: 99px; bottom: calc(92px + env(safe-area-inset-bottom)); box-shadow: 0 10px 24px -12px rgba(0,0,0,.45); }
+  .tabs { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); max-width: 456px; border-top: 0; border-radius: 26px; padding: 8px; box-shadow: 0 10px 30px -14px rgba(40,40,80,.4); }
+  .tabs button { border-radius: 18px; padding: 7px 0; }
+  .tabs button.cur { color: var(--text); background: var(--tone); }
+  .tabs button.cur .i { transform: none; }
+  .sheet { border-radius: 32px 32px 0 0; }
+  .sheet input:focus { border-color: var(--text); }
+  .chips button.pick { background: var(--text); color: #fff; }
+  .emojis button.pick { background: var(--tone); box-shadow: inset 0 0 0 2px var(--text); }
+  .sheet .save { background: var(--text); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1 id="title"></h1>
+  <button class="edit" id="editBtn">Изменить</button>
+</div>
+
+<div id="view"></div>
+
+<button class="add" id="addBtn"></button>
+<nav class="tabs" id="tabs"></nav>
+
+<div class="shade" id="shade"></div>
+<div class="sheet" id="sheet"></div>
+
+<script src="fin.js"></script>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#eeeef4'); tg.setBackgroundColor('#eeeef4'); } catch (e) {} }
+const buzz = kind => { try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred(kind); } catch (e) {} };
+
+const KEY = 'habits-v1';
+const TABS = [
+  { id: 'habits', icon: '🔥', label: 'Привычки' },
+  { id: 'ideas',  icon: '💡', label: 'Контент' },
+  { id: 'tasks',  icon: '✅', label: 'Задачи' },
+  { id: 'money',  icon: '💰', label: 'Деньги' },
+];
+const EMOJIS = ['💧','🚶‍♀️','📚','🧘‍♀️','🏋️‍♀️','🥗','😴','✍️','🇬🇧','💊','🧴','🎨','💻','📵','🌿','💰'];
+const FORMATS = { reels: ['🎬', 'Рилс'], post: ['📝', 'Пост'], stories: ['📱', 'Сторис'], carousel: ['🖼', 'Карусель'] };
+const CURRENCIES = ['BYN', '$', '€', '₽'];
+const WD = ['вс','пн','вт','ср','чт','пт','сб'];
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+let state = {};
+let tab = 'habits';
+let sel = keyOf(new Date());
+let sheetKind = null;
+let form = {};
+
+const $ = id => document.getElementById(id);
+const view = $('view'), sheet = $('sheet');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+
+function keyOf(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function shift(key, n) {
+  const [y, m, d] = key.split('-').map(Number);
+  return keyOf(new Date(y, m - 1, d + n));
+}
+function dateOf(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function longDate(key) { const d = dateOf(key); return d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+function nearDate(key) {
+  const t = keyOf(new Date());
+  return key === t ? 'сегодня' : key === shift(t, 1) ? 'завтра' : key === shift(t, -1) ? 'вчера' : longDate(key);
+}
+function plural(n, one, few, many) {
+  const a = n % 10, b = n % 100;
+  if (a === 1 && b !== 11) return one;
+  if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few;
+  return many;
+}
+const money = n => (Math.round(n * 100) / 100).toLocaleString('ru-RU');
+const parseNum = s => parseFloat(String(s).replace(/\s/g, '').replace(',', '.'));
+
+function load() {
+  try { state = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { state = {}; }
+  state.habits = state.habits || [];
+  state.log = state.log || {};
+  state.ideas = state.ideas || [];
+  state.tasks = state.tasks || [];
+  state.fin = state.fin || finEmpty(); delete state.money;
+  try { const t = localStorage.getItem(KEY + '-tab'); if (TABS.some(x => x.id === t)) tab = t; } catch (e) {}
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function row(o) {
+  return '<div class="row' + (o.on ? ' on' : '') + (o.cls ? ' ' + o.cls : '') + '" data-act="toggle" data-id="' + o.id + '">' +
+    '<div class="emo">' + o.emo + '</div>' +
+    '<div class="info"><div class="name">' + esc(o.name) + '</div><div class="meta' + (o.late ? ' late' : '') + '">' + esc(o.meta) + '</div></div>' +
+    '<div class="check">✓</div><button class="del" data-act="del" data-id="' + o.id + '">✕</button></div>';
+}
+const section = (title, rows) => rows.length ? '<div class="sub">' + title + '</div>' + rows.join('') : '';
+const empty = text => '<div class="empty">' + text + '</div>';
+
+/* ---------- привычки ---------- */
+const doneOn = key => (state.log[key] || []).filter(id => state.habits.some(h => h.id === id));
+// серия: дни подряд; если сегодня ещё пусто, считаем со вчера
+function streak(test) {
+  const today = keyOf(new Date());
+  let k = test(today) ? today : shift(today, -1), n = 0;
+  while (test(k)) { n++; k = shift(k, -1); }
+  return n;
+}
+function viewHabits() {
+  const today = keyOf(new Date()), total = state.habits.length;
+  const s = streak(k => doneOn(k).length > 0), tDone = doneOn(today).length;
+  $('title').textContent = sel === today ? 'Сегодня' : sel === shift(today, -1) ? 'Вчера' : longDate(sel);
+  let html = '<div class="hero"><div><div class="num">' + s + '</div>' +
+    '<div class="lbl">' + plural(s, 'день подряд', 'дня подряд', 'дней подряд') + '</div>' +
+    '<div class="pill">' + (total === 0 ? 'добавь первую привычку' : tDone === total ? 'сегодня всё сделано ✨' : 'сегодня ' + tDone + ' из ' + total) + '</div></div>' +
+    '<div class="fire">' + (s === 0 ? '🌱' : s < 7 ? '🔥' : s < 30 ? '🚀' : '👑') + '</div></div><div class="week">';
+  for (let i = 6; i >= 0; i--) {
+    const k = shift(today, -i), d = dateOf(k);
+    const p = total ? Math.round(doneOn(k).length / total * 100) : 0;
+    html += '<button class="day' + (k === sel ? ' sel' : '') + (p === 100 ? ' full' : '') + '" data-act="day" data-id="' + k + '">' +
+      '<div class="wd">' + WD[d.getDay()] + '</div><div class="ring" style="--p:' + p + '"><span>' + (p === 100 ? '✓' : d.getDate()) + '</span></div></button>';
+  }
+  html += '</div>';
+  if (!total) html += empty('Пока пусто.<br>Нажми «Добавить привычку» внизу 👇');
+  else {
+    const done = doneOn(sel);
+    html += section(longDate(sel) + ' · отмечай, что сделано', state.habits.map(h => {
+      const hs = streak(k => (state.log[k] || []).includes(h.id));
+      return row({ id: h.id, emo: h.emoji, name: h.name, on: done.includes(h.id),
+        meta: hs ? '🔥 ' + hs + ' ' + plural(hs, 'день', 'дня', 'дней') + ' подряд' : 'серия начнётся с первой отметки' });
+    }));
+  }
+  view.innerHTML = html;
+}
+
+/* ---------- план контента ---------- */
+function viewIdeas() {
+  $('title').textContent = 'План контента';
+  const today = keyOf(new Date());
+  const plan = state.ideas.filter(i => !i.done).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  const out = state.ideas.filter(i => i.done);
+  const week = plan.filter(i => i.date && i.date >= today && i.date <= shift(today, 6)).length;
+  const r = i => row({ id: i.id, emo: FORMATS[i.format][0], name: i.text, on: i.done,
+    late: !i.done && i.date && i.date < today,
+    meta: FORMATS[i.format][1] + ' · ' + (i.date ? nearDate(i.date) : 'без даты') });
+  let html = '<div class="stats">' +
+    '<div class="stat hot"><b>' + plan.length + '</b><span>в плане</span></div>' +
+    '<div class="stat"><b>' + week + '</b><span>на 7 дней</span></div>' +
+    '<div class="stat"><b>' + out.length + '</b><span>вышло</span></div></div>';
+  if (!state.ideas.length) html += empty('Сюда складываем идеи постов, рилс и сторис.<br>Нажми «Добавить идею» внизу 👇');
+  html += section('В плане · отметь, когда выйдет', plan.map(r)) + section('Вышло', out.map(r));
+  view.innerHTML = html;
+}
+
+/* ---------- задачи ---------- */
+function viewTasks() {
+  $('title').textContent = 'Задачи';
+  const today = keyOf(new Date()), tomorrow = shift(today, 1);
+  const open = state.tasks.filter(t => !t.done).sort((a, b) => a.date.localeCompare(b.date));
+  const late = open.filter(t => t.date < today), now = open.filter(t => t.date === today);
+  const next = open.filter(t => t.date === tomorrow), later = open.filter(t => t.date > tomorrow);
+  const done = state.tasks.filter(t => t.done).sort((a, b) => b.date.localeCompare(a.date));
+  const r = t => row({ id: t.id, emo: t.done ? '👍' : t.date < today ? '⏰' : '📌', name: t.text, on: t.done,
+    late: !t.done && t.date < today, meta: (!t.done && t.date < today ? 'срок был ' : '') + nearDate(t.date) });
+  let html = '<div class="stats">' +
+    '<div class="stat hot"><b>' + now.length + '</b><span>на сегодня</span></div>' +
+    '<div class="stat' + (late.length ? ' bad' : '') + '"><b>' + late.length + '</b><span>просрочено</span></div>' +
+    '<div class="stat"><b>' + done.length + '</b><span>сделано</span></div></div>';
+  if (!state.tasks.length) html += empty('Задач пока нет.<br>Нажми «Добавить задачу» внизу 👇');
+  html += section('Просрочено', late.map(r)) + section('Сегодня', now.map(r)) + section('Завтра', next.map(r)) +
+    section('Позже', later.map(r)) + section('Сделано', done.map(r));
+  view.innerHTML = html;
+}
+
+/* ---------- общий рендер ---------- */
+function render() {
+  document.body.dataset.tab = tab;
+  document.body.dataset.sub = tab === 'money' ? finSub : '';
+  $('tabs').innerHTML = TABS.map(t => '<button class="' + (t.id === tab ? 'cur' : '') + '" data-tab="' + t.id + '"><span class="i">' + t.icon + '</span>' + t.label + '</button>').join('');
+  ({ habits: viewHabits, ideas: viewIdeas, tasks: viewTasks, money: viewMoney })[tab]();
+  view.insertAdjacentHTML('beforeend', '<button class="xfer" data-act="xfer">⇅ Перенос данных</button>');
+  $('addBtn').textContent = { habits: '+ Добавить привычку', ideas: '+ Добавить идею', tasks: '+ Добавить задачу',
+    money: finAddLabel() }[tab];
+  const count = { habits: state.habits.length, ideas: state.ideas.length, tasks: state.tasks.length, money: 0 }[tab];
+  if (!count) document.body.classList.remove('editing');
+  $('editBtn').style.visibility = count ? 'visible' : 'hidden';
+  $('editBtn').textContent = document.body.classList.contains('editing') ? 'Готово' : 'Изменить';
+}
+
+$('tabs').onclick = e => {
+  const b = e.target.closest('[data-tab]');
+  if (!b) return;
+  tab = b.dataset.tab;
+  try { localStorage.setItem(KEY + '-tab', tab); } catch (err) {}
+  document.body.classList.remove('editing');
+  buzz('light'); render(); window.scrollTo(0, 0);
+};
+$('editBtn').onclick = () => { document.body.classList.toggle('editing'); render(); };
+
+view.onclick = e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const id = t.dataset.id, act = t.dataset.act;
+  if (act === 'xfer') return openXfer();
+  if (tab === 'money') return finAct(act, id);
+  if (act === 'day') { sel = id; buzz('light'); render(); }
+  else if (act === 'goal') openSheet('goal');
+  else if (act === 'del') remove(id);
+  else if (act === 'toggle' && !document.body.classList.contains('editing')) toggle(id);
+};
+
+function toggle(id) {
+  if (tab === 'habits') {
+    const arr = state.log[sel] || [], on = arr.includes(id);
+    state.log[sel] = on ? arr.filter(x => x !== id) : arr.concat(id);
+    if (!state.log[sel].length) delete state.log[sel];
+  } else if (tab === 'ideas' || tab === 'tasks') {
+    const it = state[tab].find(x => x.id === id);
+    if (it) it.done = !it.done;
+  } else return;
+  buzz('medium'); save(); render();
+}
+
+function remove(id) {
+  const lists = { habits: state.habits, ideas: state.ideas, tasks: state.tasks };
+  const it = lists[tab].find(x => x.id === id);
+  if (!it) return;
+  const msg = tab === 'habits' ? 'Удалить привычку «' + it.name + '» вместе с её отметками?'
+    : tab === 'money' ? 'Удалить запись на ' + money(Math.abs(it.amount)) + ' ' + state.money.goal.cur + '?'
+    : 'Удалить «' + it.text + '»?';
+  const go = ok => {
+    if (!ok) return;
+    if (tab === 'money') state.money.entries = state.money.entries.filter(x => x.id !== id);
+    else state[tab] = state[tab].filter(x => x.id !== id);
+    save(); render();
+  };
+  if (tg && tg.showConfirm) tg.showConfirm(msg, go); else go(confirm(msg));
+}
+
+/* ---------- форма добавления ---------- */
+const chips = (group, items) => '<div class="chips" data-group="' + group + '">' +
+  items.map(([v, label]) => '<button data-v="' + esc(v) + '"' + (form[group] === v ? ' class="pick"' : '') + '>' + label + '</button>').join('') + '</div>';
+
+function openSheet(kind) {
+  sheetKind = kind;
+  const today = keyOf(new Date()), g = null;
+  let html = '';
+  if (kind === 'habits') {
+    form = { emoji: EMOJIS[0] };
+    html = '<h2>Новая привычка</h2><input id="f1" maxlength="40" placeholder="Например, 8 стаканов воды" autocomplete="off">' +
+      '<div class="emojis" data-group="emoji">' + EMOJIS.map(e => '<button data-v="' + e + '"' + (e === form.emoji ? ' class="pick"' : '') + '>' + e + '</button>').join('') + '</div>';
+  } else if (kind === 'ideas') {
+    form = { format: 'reels' };
+    html = '<h2>Новая идея</h2><input id="f1" maxlength="120" placeholder="Например, рилс про блокировку кабинета" autocomplete="off">' +
+      chips('format', Object.keys(FORMATS).map(k => [k, FORMATS[k][0] + ' ' + FORMATS[k][1]])) +
+      '<div class="lab">Когда выйдет (можно не ставить)</div><input id="f2" type="date">';
+  } else if (kind === 'tasks') {
+    form = { day: today };
+    html = '<h2>Новая задача</h2><input id="f1" maxlength="120" placeholder="Например, отправить договор" autocomplete="off">' +
+      chips('day', [[today, 'Сегодня'], [shift(today, 1), 'Завтра'], [shift(today, 7), 'Через неделю']]) +
+      '<div class="lab">Или выбери день</div><input id="f2" type="date" value="' + today + '">';
+  } else if (kind === 'goal') {
+    form = { cur: g ? g.cur : 'BYN' };
+    html = '<h2>' + (g ? 'Изменить цель' : 'Моя цель') + '</h2>' +
+      '<input id="f1" maxlength="40" placeholder="На что копим" autocomplete="off" value="' + (g ? esc(g.name) : '') + '">' +
+      '<input id="f2" inputmode="decimal" placeholder="Сколько нужно" autocomplete="off" value="' + (g ? g.amount : '') + '">' +
+      chips('cur', CURRENCIES.map(c => [c, c]));
+  } else if (kind === 'entry') {
+    form = { sign: '1' };
+    html = '<h2>Внести сумму</h2>' + chips('sign', [['1', '➕ Отложила'], ['-1', '➖ Сняла']]) +
+      '<input id="f1" inputmode="decimal" placeholder="Сумма, ' + esc(g.cur) + '" autocomplete="off">' +
+      '<input id="f2" maxlength="60" placeholder="Заметка (необязательно)" autocomplete="off">';
+  }
+  sheet.innerHTML = html + '<button class="save" id="saveBtn">' + (kind === 'goal' ? 'Сохранить' : 'Добавить') + '</button>';
+  check();
+  document.body.classList.remove('editing');
+  document.body.classList.add('adding');
+  render();
+  setTimeout(() => $('f1') && $('f1').focus(), 250);
+}
+function closeSheet() {
+  document.body.classList.remove('adding');
+  if (document.activeElement) document.activeElement.blur();
+}
+function valid() {
+  if (sheetKind === 'xfer') return true;
+  if (sheetKind === 'form') return !!formCfg.valid(formValues());
+  const a = $('f1').value.trim();
+  if (sheetKind === 'entry') return parseNum(a) > 0;
+  if (sheetKind === 'goal') return !!a && parseNum($('f2').value) > 0;
+  if (sheetKind === 'tasks') return !!a && !!$('f2').value;
+  return !!a;
+}
+function check() { const b = $('saveBtn'); if (b) b.disabled = !valid(); }
+
+$('addBtn').onclick = () => tab === 'money' ? finAdd() : openSheet(tab);
+$('shade').onclick = closeSheet;
+sheet.oninput = e => {
+  if (sheetKind === 'tasks' && e.target.id === 'f2') {
+    form.day = e.target.value;
+    sheet.querySelectorAll('[data-group="day"] button').forEach(b => b.classList.toggle('pick', b.dataset.v === form.day));
+  }
+  check();
+};
+sheet.onkeydown = e => { if (e.key === 'Enter' && valid()) submit(); };
+sheet.onclick = e => {
+  if (e.target.id === 'saveBtn') return submit();
+  if (e.target.id === 'killBtn') return formKill();
+  if (sheetKind === 'xfer') return xferClick(e.target.id);
+  const b = e.target.closest('[data-v]');
+  if (!b) return;
+  const group = b.parentNode.dataset.group;
+  form[group] = b.dataset.v;
+  b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('pick', x === b));
+  if (group === 'day') $('f2').value = form.day;
+  check();
+};
+
+function submit() {
+  if (!valid()) return;
+  if (sheetKind === 'form') { formCfg.save(formValues()); buzz('medium'); save(); closeSheet(); render(); return; }
+  const a = $('f1').value.trim(), b = $('f2') ? $('f2').value.trim() : '', today = keyOf(new Date());
+  if (sheetKind === 'habits') state.habits.push({ id: newId(), name: a, emoji: form.emoji });
+  else if (sheetKind === 'ideas') state.ideas.push({ id: newId(), text: a, format: form.format, date: b || null, done: false });
+  else if (sheetKind === 'tasks') state.tasks.push({ id: newId(), text: a, date: b, done: false });
+  else if (sheetKind === 'goal') state.money.goal = { name: a, amount: parseNum(b), cur: form.cur };
+  else if (sheetKind === 'entry') state.money.entries.push({ id: newId(), amount: parseNum(a) * Number(form.sign), note: b, date: today });
+  buzz('medium'); save(); closeSheet(); render();
+}
+
+/* ---------- перенос данных между устройствами ---------- */
+function openXfer() {
+  sheetKind = 'xfer';
+  sheet.innerHTML = '<h2>Перенос данных</h2>' +
+    '<div class="lab">С этого устройства</div><button class="save" id="xCopy">Скопировать все мои данные</button>' +
+    '<div class="lab" style="margin-top:18px">На это устройство</div>' +
+    '<textarea id="xText" placeholder="Вставь сюда скопированный текст"></textarea>' +
+    '<button class="save" id="xLoad">Загрузить из текста</button>' +
+    '<button class="kill" id="xPick" style="color:var(--text)">или выбрать файл с данными</button>' +
+    '<input type="file" id="xFile" accept=".json,.txt,application/json,text/plain" hidden><div class="lab" id="xMsg"></div>';
+  $('xFile').onchange = e => { const f = e.target.files[0]; if (f) f.text().then(xferApply); };
+  document.body.classList.remove('editing');
+  document.body.classList.add('adding');
+}
+function xferClick(id) {
+  if (id === 'xCopy') {
+    const raw = JSON.stringify(state), box = $('xText');
+    const shown = () => { box.value = raw; box.select(); $('xMsg').textContent = 'Текст ниже выделен: скопируй его и вставь на другом устройстве.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(raw).then(() => { $('xMsg').textContent = 'Скопировано. Открой приложение на другом устройстве и вставь.'; }, shown);
+    else shown();
+  } else if (id === 'xLoad') xferApply($('xText').value);
+  else if (id === 'xPick') $('xFile').click();
+}
+function xferApply(raw) {
+  let data;
+  try { data = JSON.parse(raw); } catch (e) { $('xMsg').textContent = 'Не получилось прочитать: текст скопирован не полностью.'; return; }
+  const full = data && Array.isArray(data.habits), seed = data && data.months && !full;
+  if (!full && !seed) { $('xMsg').textContent = 'Это не похоже на данные приложения.'; return; }
+  const go = ok => {
+    if (!ok) return;
+    if (full) { state = data; save(); load(); } else finImport(data);
+    closeSheet(); render();
+  };
+  const msg = full ? 'Заменить все данные на этом устройстве загруженными?' : 'Заменить раздел «Деньги» на этом устройстве загруженными данными?';
+  if (tg && tg.showConfirm) tg.showConfirm(msg, go); else go(confirm(msg));
+}
+
+load();
+render();
+</script>
+</body>
+</html>
