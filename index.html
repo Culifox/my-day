@@ -510,6 +510,7 @@ function render() {
   $('tabs').innerHTML = bar.map(id => { const t = modInfo(id); return '<button class="' + (id === cur ? 'cur' : '') + '" data-tab="' + id + '"><span class="i">' + t.icon + '</span>' + (t.short || t.label) + '</button>'; }).join('');
   m.view();
   if (tab !== 'bdays') bdayBanner();
+  syncEmptyHint();
   view.insertAdjacentHTML('beforeend', '<button class="xfer" data-act="xfer">⇅ Перенос данных</button>');
   const add = typeof m.add === 'function' ? m.add() : m.add;
   $('addBtn').textContent = add || '';

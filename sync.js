@@ -111,6 +111,7 @@ async function syncConnect(code) {
 function syncHtml() {
   if (!syncOn()) return '<div class="lab" style="margin-top:20px">Синхронизация с Google Диском</div>' +
     '<textarea id="syncCode" placeholder="Вставь сюда код синхронизации"></textarea>' +
+    (navigator.clipboard && navigator.clipboard.readText ? '<button class="kill" id="syncPaste" style="color:var(--text);margin:-4px 0 6px">📋 Вставить код из буфера</button>' : '') +
     '<button class="save" id="syncConnect">Подключить</button><div class="lab" id="syncMsg"></div>';
   return '<div class="lab" style="margin-top:20px">Синхронизация с Google Диском</div>' +
     '<div class="note" style="margin:0 0 10px;background:var(--bg)"><b>☁️ </b><span id="syncStatus">' + esc(syncStatusText()) + '</span></div>' +
@@ -119,6 +120,7 @@ function syncHtml() {
 }
 function syncClick(id) {
   if (id === 'syncConnect') { syncConnect($('syncCode').value); return true; }
+  if (id === 'syncPaste') { navigator.clipboard.readText().then(t => { $('syncCode').value = t.trim(); syncConnect(t); }, () => { $('syncMsg').textContent = 'Не получилось вставить: зажми поле и выбери «Вставить».'; }); return true; }
   if (id === 'syncNow') { $('syncMsg').textContent = 'Синхронизирую…'; syncPull().then(() => { if ($('syncMsg')) $('syncMsg').textContent = ''; }); return true; }
   if (id === 'syncOff') {
     ask('Отключить синхронизацию на этом устройстве? Данные останутся и здесь, и на Диске.', ok => { if (!ok) return; syncCfg = null; syncSaveCfg(); closeSheet(); render(); });
@@ -133,6 +135,12 @@ function syncListen() {
   syncListening = true;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncPull(); });
   window.addEventListener('online', () => syncPull());
+}
+// на пустом приложении без синхронизации подсказываем, как вернуть данные из Google
+function syncEmptyHint() {
+  if (syncOn()) return;
+  const empty = !state.habits.length && !state.tasks.length && !state.ideas.length && !Object.keys(state.fin.months).length && !state.bdays.length && !state.fin.goal;
+  if (empty) view.insertAdjacentHTML('afterbegin', '<button class="banner" style="background:#e4e1fb" data-act="xfer">☁️ Тут пусто? Если твои данные хранятся в Google, нажми сюда и вставь код синхронизации, всё вернётся</button>');
 }
 function syncStart() {
   syncLoadCfg();
