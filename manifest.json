@@ -1,6 +1,6 @@
 {
-  "name": "Мой день",
-  "short_name": "Мой день",
+  "name": "Планировщик",
+  "short_name": "Планировщик",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
