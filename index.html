@@ -140,6 +140,21 @@
   .lg em { font-style: normal; color: var(--muted); font-size: 13px; }
   .lg b { white-space: nowrap; min-width: 76px; text-align: right; }
 
+  .topbtns { display: flex; gap: 6px; align-items: baseline; }
+  .top .edit { white-space: nowrap; }
+  body.selecting .top h1 { font-size: 22px; white-space: nowrap; }
+  body.editing .selhint { display: none; }
+  /* режим выбора, как в «Фото» */
+  .row { -webkit-touch-callout: none; }
+  body.selecting .row .check, body.selecting .row .del { display: none; }
+  body.selecting .row::before { content: ''; flex: none; width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 2px #c9c9d4; background: var(--card); display: grid; place-items: center; font-size: 15px; font-weight: 800; color: #fff; }
+  body.selecting .row.picked::before { content: '✓'; background: var(--text); box-shadow: none; }
+  body.selecting .row.picked { box-shadow: inset 0 0 0 2px var(--text); }
+  body.selecting .row.li { padding-left: 14px; }
+  .add.danger { background: var(--bad); color: #fff; }
+  .add:disabled { opacity: .45; }
+  .selhint { text-align: center; font-size: 12px; color: var(--muted); margin: 14px 20px 0; line-height: 1.4; }
+
   .empty { text-align: center; color: var(--muted); padding: 34px 20px; font-size: 15px; line-height: 1.5; }
 
   .add {
@@ -332,7 +347,7 @@
 
 <div class="top">
   <h1 id="title"></h1>
-  <button class="edit" id="editBtn">Изменить</button>
+  <div class="topbtns"><button class="edit" id="selAllBtn" style="display:none">Выбрать все</button><button class="edit" id="editBtn">Изменить</button></div>
 </div>
 
 <div id="view"></div>
@@ -346,6 +361,7 @@
 <script src="fin.js"></script>
 <script src="extra.js"></script>
 <script src="sync.js"></script>
+<script src="select.js"></script>
 <script>
 const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#eeeef4'); tg.setBackgroundColor('#eeeef4'); } catch (e) {} }
@@ -521,6 +537,8 @@ function render() {
   if (!count) document.body.classList.remove('editing');
   $('editBtn').style.visibility = count ? 'visible' : 'hidden';
   $('editBtn').textContent = document.body.classList.contains('editing') ? 'Готово' : 'Изменить';
+  selHint();
+  selPaint();
 }
 
 $('tabs').onclick = e => {
@@ -528,9 +546,10 @@ $('tabs').onclick = e => {
   if (!b) return;
   goTab(b.dataset.tab);
 };
-$('editBtn').onclick = () => { document.body.classList.toggle('editing'); render(); };
+$('editBtn').onclick = () => { if (selOn()) return selExit(); document.body.classList.toggle('editing'); render(); };
 
 view.onclick = e => {
+  if (selClick(e)) return;
   const t = e.target.closest('[data-act]');
   if (!t) return;
   const id = t.dataset.id, act = t.dataset.act;
@@ -542,7 +561,7 @@ view.onclick = e => {
   if (act === 'day') { sel = id; buzz('light'); render(); }
   else if (act === 'goal') openSheet('goal');
   else if (act === 'del') remove(id);
-  else if (act === 'toggle' && !document.body.classList.contains('editing')) toggle(id);
+  else if (act === 'toggle') { if (document.body.classList.contains('editing')) editItem(id); else toggle(id); }
 };
 
 function toggle(id) {
@@ -629,7 +648,7 @@ function valid() {
 }
 function check() { const b = $('saveBtn'); if (b) b.disabled = !valid(); }
 
-$('addBtn').onclick = () => { const m = MODS()[tab]; if (m && m.onAdd) m.onAdd(); };
+$('addBtn').onclick = () => { if (selOn()) return selDelete(); const m = MODS()[tab]; if (m && m.onAdd) m.onAdd(); };
 $('shade').onclick = closeSheet;
 sheet.oninput = e => {
   if (sheetKind === 'tasks' && e.target.id === 'f2') {

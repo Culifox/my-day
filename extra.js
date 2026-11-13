@@ -44,6 +44,7 @@ function extraMigrate() {
   extraReady = true;
   view.addEventListener('input', e => { if (e.target.id === 'fLabel') { state.focus.label = e.target.value; save(); } });
   setInterval(focusTick, 500);
+  selInit();
 }
 
 let _mods;
@@ -66,6 +67,7 @@ function MODS() {
 
 function goTab(id) {
   if (!MODS()[id]) return;
+  selReset();
   if (id === 'lists' && tab !== 'lists') openList = null;
   tab = id;
   try { localStorage.setItem(KEY + '-tab', tab); } catch (err) {}
@@ -334,7 +336,8 @@ function checksAct(act, id) {
   const c = state.checks.find(x => x.id === id);
   if (!c) return;
   if (act === 'del') return ask('Удалить «' + c.name + '»?', ok => { if (!ok) return; state.checks = state.checks.filter(x => x !== c); save(); render(); });
-  if (act !== 'toggle' || editing()) return;
+  if (act !== 'toggle') return;
+  if (editing()) return editItem(id);
   c.at = checkDone(c) ? null : new Date().toISOString();
   buzz(c.at ? 'medium' : 'light'); save(); render();
 }
@@ -469,7 +472,8 @@ function listsAct(act, id) {
   if (!l) return;
   if (act === 'lclear') l.items = l.items.filter(i => !i.done);
   else if (act === 'del') l.items = l.items.filter(i => i.id !== id);
-  else if (act === 'toggle' && !editing()) { const i = l.items.find(x => x.id === id); if (i) { i.done = !i.done; buzz(i.done ? 'medium' : 'light'); } }
+  else if (act === 'toggle' && editing()) return editItem(id);
+  else if (act === 'toggle') { const i = l.items.find(x => x.id === id); if (i) { i.done = !i.done; buzz(i.done ? 'medium' : 'light'); } }
   else return;
   save(); render();
 }

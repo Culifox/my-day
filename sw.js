@@ -1,6 +1,6 @@
 // Работа без интернета: сначала берём свежую версию из сети, если сети нет — сохранённую копию.
-const CACHE = 'my-day-v5';
-const FILES = ['./', 'index.html', 'fin.js', 'extra.js', 'sync.js', 'manifest.json', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'my-day-v6';
+const FILES = ['./', 'index.html', 'fin.js', 'extra.js', 'sync.js', 'select.js', 'manifest.json', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => e.waitUntil(caches.keys()
   .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
