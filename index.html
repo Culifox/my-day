@@ -487,7 +487,8 @@ function viewTasks() {
   const open = state.tasks.filter(t => !t.done).sort((a, b) => a.date.localeCompare(b.date));
   const late = open.filter(t => t.date < today), now = open.filter(t => t.date === today);
   const next = open.filter(t => t.date === tomorrow), later = open.filter(t => t.date > tomorrow);
-  const done = state.tasks.filter(t => t.done).sort((a, b) => b.date.localeCompare(a.date));
+  // сделанные видны только в день выполнения, на следующий день прячутся (данные не удаляются)
+  const done = state.tasks.filter(t => t.done && (t.doneAt ? t.doneAt === today : t.date >= today)).sort((a, b) => b.date.localeCompare(a.date));
   const r = t => row({ id: t.id, emo: t.done ? '👍' : t.date < today ? '⏰' : '📌', name: t.text, on: t.done,
     late: !t.done && t.date < today, meta: (!t.done && t.date < today ? 'срок был ' : '') + nearDate(t.date) });
   let html = '<div class="stats">' +
@@ -495,6 +496,7 @@ function viewTasks() {
     '<div class="stat' + (late.length ? ' bad' : '') + '"><b>' + late.length + '</b><span>просрочено</span></div>' +
     '<div class="stat"><b>' + done.length + '</b><span>сделано</span></div></div>';
   if (!state.tasks.length) html += empty('Задач пока нет.<br>Нажми «Добавить задачу» внизу 👇');
+  else if (!late.length && !now.length && !next.length && !later.length && !done.length) html += empty('Все задачи сделаны 🎉<br>Выполненные прячутся на следующий день.');
   html += section('Просрочено', late.map(r)) + section('Сегодня', now.map(r)) + section('Завтра', next.map(r)) +
     section('Позже', later.map(r)) + section('Сделано', done.map(r));
   view.innerHTML = html;
@@ -550,7 +552,7 @@ function toggle(id) {
     if (!state.log[sel].length) delete state.log[sel];
   } else if (tab === 'ideas' || tab === 'tasks') {
     const it = state[tab].find(x => x.id === id);
-    if (it) it.done = !it.done;
+    if (it) { it.done = !it.done; if (tab === 'tasks') it.doneAt = it.done ? keyOf(new Date()) : null; }
   } else return;
   buzz('medium'); save(); render();
 }
