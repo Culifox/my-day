@@ -136,8 +136,14 @@ function editItem(id) {
     return formSheet({
       title: 'Задача', ok: 'Сохранить',
       fields: [{ key: 'text', ph: 'Что сделать', value: t.text, max: 120 }, { key: 'date', lab: 'Когда', mode: 'date', value: t.date }],
+      chips: [{ key: 'anyw', lab: 'Если дата на выходных', value: t.anyWeekend ? 'yes' : 'no', items: [['no', 'Именно в этот день'], ['yes', 'Любой день выходных']] }],
       valid: v => !!v.text && /^\d{4}-\d{2}-\d{2}$/.test(v.date),
-      save: v => { t.text = v.text; t.date = v.date; },
+      save: v => {
+        t.text = v.text; t.date = v.date;
+        const wd = dateOf(v.date).getDay();
+        if (v.anyw === 'yes' && (wd === 6 || wd === 0)) { t.anyWeekend = true; if (wd === 0) t.date = shift(v.date, -1); }
+        else delete t.anyWeekend;
+      },
       del: () => { state.tasks = state.tasks.filter(x => x !== t); }
     });
   }

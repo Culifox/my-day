@@ -157,6 +157,11 @@
   .lxres .lxh:first-child { margin-top: 0; }
   .tips p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
   .tips p:last-child { margin-bottom: 0; }
+  .wkblock { background: #e4e1fb; border-radius: 26px; padding: 10px 10px 2px; margin: 16px 0 10px; }
+  .wkblock .row { background: rgba(255,255,255,.85); }
+  .wkh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 2px 6px 10px; }
+  .wkh b { font-size: 17px; font-weight: 800; }
+  .wkh span { font-size: 12px; color: #534AB7; font-weight: 600; text-align: right; }
   .selhint { text-align: center; font-size: 12px; color: var(--muted); margin: 14px 20px 0; line-height: 1.4; }
 
   .empty { text-align: center; color: var(--muted); padding: 34px 20px; font-size: 15px; line-height: 1.5; }
@@ -501,24 +506,51 @@ function viewIdeas() {
 }
 
 /* ---------- задачи ---------- */
+// ближайшие выходные: суббота этой недели (если сегодня воскресенье — вчерашняя)
+function weekendSat(today) {
+  const d = dateOf(today).getDay();
+  return d === 6 ? today : d === 0 ? shift(today, -1) : shift(today, 6 - d);
+}
+// до какого дня задачу можно сделать: «любой день выходных» — до воскресенья
+const wkRange = sat => { const a = dateOf(sat), b = dateOf(shift(sat, 1)); return a.getMonth() === b.getMonth() ? a.getDate() + '–' + longDate(shift(sat, 1)) : longDate(sat) + ' – ' + longDate(shift(sat, 1)); };
+const taskDue = t => t.anyWeekend ? shift(t.date, 1) : t.date;
+// какую дату ставить задаче «на выходные»: в воскресенье «суббота» — это уже следующая суббота
+function weekendTarget(which) {
+  const today = keyOf(new Date()), sat = weekendSat(today);
+  if (which === 'sun') return shift(sat, 1);
+  if (which === 'sat') return sat < today ? shift(sat, 7) : sat;
+  return sat;
+}
 function viewTasks() {
   $('title').textContent = 'Задачи';
-  const today = keyOf(new Date()), tomorrow = shift(today, 1);
+  const today = keyOf(new Date()), tomorrow = shift(today, 1), sat = weekendSat(today), sun = shift(sat, 1);
+  const isWkNow = today === sat || today === sun;
   const open = state.tasks.filter(t => !t.done).sort((a, b) => a.date.localeCompare(b.date));
-  const late = open.filter(t => t.date < today), now = open.filter(t => t.date === today);
-  const next = open.filter(t => t.date === tomorrow), later = open.filter(t => t.date > tomorrow);
+  const late = open.filter(t => taskDue(t) < today);
+  const wk = open.filter(t => taskDue(t) >= today && t.date >= sat && t.date <= sun);
+  const rest = open.filter(t => taskDue(t) >= today && !wk.includes(t));
+  const now = rest.filter(t => t.date === today), next = rest.filter(t => t.date === tomorrow), later = rest.filter(t => t.date > tomorrow);
   // сделанные видны только в день выполнения, на следующий день прячутся (данные не удаляются)
   const done = state.tasks.filter(t => t.done && (t.doneAt ? t.doneAt === today : t.date >= today)).sort((a, b) => b.date.localeCompare(a.date));
-  const r = t => row({ id: t.id, emo: t.done ? '👍' : t.date < today ? '⏰' : '📌', name: t.text, on: t.done,
-    late: !t.done && t.date < today, meta: (!t.done && t.date < today ? 'срок был ' : '') + nearDate(t.date) });
+  const r = t => row({ id: t.id, emo: t.done ? '👍' : taskDue(t) < today ? '⏰' : '📌', name: t.text, on: t.done,
+    late: !t.done && taskDue(t) < today, meta: (!t.done && taskDue(t) < today ? 'срок был ' : '') + (t.anyWeekend ? 'выходные ' + wkRange(t.date) : nearDate(t.date)) });
+  const wr = t => row({ id: t.id, emo: '📌', name: t.text, on: false,
+    meta: t.anyWeekend ? 'любой день' : (t.date === sat ? 'суббота' : 'воскресенье') + (t.date === today ? ' · сегодня' : t.date === tomorrow ? ' · завтра' : '') });
+  const todayCount = now.length + wk.filter(t => t.date === today || (t.anyWeekend && isWkNow)).length;
   let html = '<div class="stats">' +
-    '<div class="stat hot"><b>' + now.length + '</b><span>на сегодня</span></div>' +
+    '<div class="stat hot"><b>' + todayCount + '</b><span>на сегодня</span></div>' +
     '<div class="stat' + (late.length ? ' bad' : '') + '"><b>' + late.length + '</b><span>просрочено</span></div>' +
     '<div class="stat"><b>' + done.length + '</b><span>сделано</span></div></div>';
   if (!state.tasks.length) html += empty('Задач пока нет.<br>Нажми «Добавить задачу» внизу 👇');
-  else if (!late.length && !now.length && !next.length && !later.length && !done.length) html += empty('Все задачи сделаны 🎉<br>Выполненные прячутся на следующий день.');
-  html += section('Просрочено', late.map(r)) + section('Сегодня', now.map(r)) + section('Завтра', next.map(r)) +
-    section('Позже', later.map(r)) + section('Сделано', done.map(r));
+  else if (!late.length && !wk.length && !rest.length && !done.length) html += empty('Все задачи сделаны 🎉<br>Выполненные прячутся на следующий день.');
+  const satD = dateOf(sat), sunD = dateOf(sun);
+  const wkBlock = wk.length ? '<div class="wkblock"><div class="wkh"><b>' + (isWkNow ? 'Эти выходные' : 'Выходные') + '</b><span>' +
+    (today === sun ? 'вс ' + sunD.getDate() + ' ' + MONTHS[sunD.getMonth()] : 'сб ' + satD.getDate() + (satD.getMonth() === sunD.getMonth() ? '' : ' ' + MONTHS[satD.getMonth()]) + ' – вс ' + sunD.getDate() + ' ' + MONTHS[sunD.getMonth()]) +
+    ' · ' + wk.length + ' ' + plural(wk.length, 'задача', 'задачи', 'задач') + '</span></div>' +
+    wk.sort((a, b) => (a.anyWeekend ? 1 : 0) - (b.anyWeekend ? 1 : 0) || a.date.localeCompare(b.date)).map(wr).join('') + '</div>' : '';
+  // в выходные блок идёт сразу после просроченных, в будни — после «Завтра»
+  html += section('Просрочено', late.map(r)) + (isWkNow ? wkBlock : '') + section('Сегодня', now.map(r)) + section('Завтра', next.map(r)) +
+    (isWkNow ? '' : wkBlock) + section('Позже', later.map(r)) + section('Сделано', done.map(r));
   view.innerHTML = html;
 }
 
@@ -614,9 +646,10 @@ function openSheet(kind) {
       chips('format', Object.keys(FORMATS).map(k => [k, FORMATS[k][0] + ' ' + FORMATS[k][1]])) +
       '<div class="lab">Когда выйдет (можно не ставить)</div><input id="f2" type="date">';
   } else if (kind === 'tasks') {
-    form = { day: today };
+    form = { day: today, wkday: 'any' };
     html = '<h2>Новая задача</h2><input id="f1" maxlength="120" placeholder="Например, отправить договор" autocomplete="off">' +
-      chips('day', [[today, 'Сегодня'], [shift(today, 1), 'Завтра'], [shift(today, 7), 'Через неделю']]) +
+      chips('day', [[today, 'Сегодня'], [shift(today, 1), 'Завтра'], ['wk', 'На выходные'], [shift(today, 7), 'Через неделю']]) +
+      '<div id="wkPick" style="display:none"><div class="lab">Какой день выходных</div>' + chips('wkday', [['any', 'Любой'], ['sat', 'Суббота'], ['sun', 'Воскресенье']]) + '</div>' +
       '<div class="lab">Или выбери день</div><input id="f2" type="date" value="' + today + '">';
   } else if (kind === 'goal') {
     form = { cur: g ? g.cur : 'BYN' };
@@ -657,6 +690,7 @@ $('shade').onclick = closeSheet;
 sheet.oninput = e => {
   if (sheetKind === 'tasks' && e.target.id === 'f2') {
     form.day = e.target.value;
+    $('wkPick').style.display = 'none';
     sheet.querySelectorAll('[data-group="day"] button').forEach(b => b.classList.toggle('pick', b.dataset.v === form.day));
   }
   check();
@@ -672,7 +706,11 @@ sheet.onclick = e => {
   const group = b.parentNode.dataset.group;
   form[group] = b.dataset.v;
   b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('pick', x === b));
-  if (group === 'day') $('f2').value = form.day;
+  if (sheetKind === 'tasks' && (group === 'day' || group === 'wkday')) {
+    const wkOn = form.day === 'wk';
+    $('wkPick').style.display = wkOn ? '' : 'none';
+    $('f2').value = wkOn ? weekendTarget(form.wkday) : form.day;
+  } else if (group === 'day') $('f2').value = form.day;
   check();
 };
 
@@ -687,7 +725,7 @@ function submit() {
   const a = $('f1').value.trim(), b = $('f2') ? $('f2').value.trim() : '', today = keyOf(new Date());
   if (sheetKind === 'habits') state.habits.push({ id: newId(), name: a, emoji: form.emoji });
   else if (sheetKind === 'ideas') state.ideas.push({ id: newId(), text: a, format: form.format, date: b || null, done: false });
-  else if (sheetKind === 'tasks') state.tasks.push({ id: newId(), text: a, date: b, done: false });
+  else if (sheetKind === 'tasks') state.tasks.push(Object.assign({ id: newId(), text: a, date: b, done: false }, form.day === 'wk' && form.wkday === 'any' ? { anyWeekend: true } : {}));
   else if (sheetKind === 'goal') state.money.goal = { name: a, amount: parseNum(b), cur: form.cur };
   else if (sheetKind === 'entry') state.money.entries.push({ id: newId(), amount: parseNum(a) * Number(form.sign), note: b, date: today });
   buzz('medium'); save(); closeSheet(); render();
