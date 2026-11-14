@@ -233,10 +233,99 @@ function viewLoan() {
       return finRow({ emo: '⚡', name: '+' + byn(add) + ' в месяц', meta: 'быстрее на ' + years(base.n - x.n) + ' · процентов меньше на ≈ ' + byn(base.int - x.int) });
     }));
   }
+  if (loanReady()) html += loanCalcHtml();
   html += section('Платежи', L.payments.slice().reverse().map(p => finRow({ act: 'edit', id: 'pay:' + p.id, emo: '💳', name: byn(p.amount),
     meta: 'в долг ' + byn(p.principal) + ' · проценты ' + byn(p.interest) + ' · ' + nearDate(p.date) +
       (p.shorter > 0 ? ' · срок короче на ' + years(p.shorter) : '') + (p.saved > 1 ? ' · процентов меньше на ≈ ' + byn(p.saved) : '') })));
   return html + '<div class="note" style="font-size:13px;color:var(--muted)">Расчёт ориентировочный: банк считает проценты по дням, а ставка после льготного периода плавающая.</div>';
+}
+
+/* ---------- калькулятор досрочных взносов в тело кредита ---------- */
+const annuity = (b, r, n) => r ? b * r / (1 - Math.pow(1 + r, -n)) : b / n;
+const extraByn = e => e.cur === 'usd' ? e.amt * state.fin.rate : e.amt;
+// Модель как у банка (сверено с графиком до копейки): в отсрочку платятся только проценты,
+// дальше платёж = аннуитет на остаток долга на оставшийся срок по текущей ставке.
+// keepPay: после взносов платёж с 3-го года не уменьшается, кредит закрывается раньше.
+// последний месяц кредита: если не вписан, подбираем такой, при котором расчёт совпадает с платежами из графика банка
+let _endCache = { key: '', end: '' };
+function loanEnd() {
+  const L = state.fin.loan;
+  if (L.endMonth) return L.endMonth;
+  const key = [L.balance, L.rate1, L.rate2, L.deferEnd, L.graceEnd, L.pay1, L.pay2].join('|');
+  if (_endCache.key === key) return _endCache.end;
+  let best = '2046-08', err = Infinity;
+  if (L.pay1 || L.pay2) for (let k = '2040-01'; k <= '2052-12'; k = mShift(k, 1)) {
+    const b = loanSim([], false, null, k), e = (L.pay1 && b.payY2 ? Math.abs(b.payY2 - L.pay1) : 0) + (L.pay2 && b.pay3 ? Math.abs(b.pay3 - L.pay2) : 0);
+    if (e < err) { err = e; best = k; }
+  }
+  _endCache = { key, end: best };
+  return best;
+}
+function loanSim(extras, keepPay, basePay3, endOverride) {
+  const L = state.fin.loan, end = endOverride || loanEnd(), first = mShift(nowMonth(), 1), ex = {};
+  (extras || []).forEach(e => { const k = e.month < first ? first : e.month; ex[k] = (ex[k] || 0) + extraByn(e); });
+  let bal = L.balance, k = first, int = 0, n = 0, pay3 = null, payY2 = null;
+  const pays = {};
+  while (bal > 0.5 && n < 720) {
+    if (ex[k]) bal = Math.max(0, bal - ex[k]);
+    if (bal <= 0.5) break;
+    const r = rateAt(k) / 1200, i = bal * r, left = Math.max(1, mDiff(k, end) + 1);
+    let pay;
+    if (L.deferEnd && k <= L.deferEnd) pay = i;
+    else if (keepPay && basePay3 && L.graceEnd && k > L.graceEnd) pay = basePay3;
+    else pay = annuity(bal, r, left);
+    if (L.deferEnd && k > L.deferEnd && payY2 === null) payY2 = pay;
+    if (L.graceEnd && k > L.graceEnd && pay3 === null) pay3 = pay;
+    pays[k] = pay;
+    int += i; bal -= Math.min(bal, pay - i); n++; k = mShift(k, 1);
+  }
+  return { int, pay3, payY2, pays, end: mShift(k, -1), n };
+}
+function loanCalcHtml() {
+  const L = state.fin.loan, f = state.fin, ex = (L.extras || []).slice().sort((a, b) => a.month.localeCompare(b.month));
+  const num = x => Math.round(x).toLocaleString('ru-RU'), low = k => mName(k).toLowerCase(), gen = k => MONTHS[+k.slice(5) - 1] + ' ' + k.slice(0, 4);
+  const base = loanSim([], false), y3 = L.graceEnd ? mShift(L.graceEnd, 1) : null;
+  let html = '<div class="sub">Калькулятор досрочных взносов в тело кредита</div>';
+  if (base.pay3 && y3 && nowMonth() <= L.graceEnd) {
+    const per = loanSim([{ month: L.graceEnd, amt: 1000, cur: 'usd' }], false);
+    html += '<div class="note" style="margin-top:0">Ориентир: каждые <b>1 000 $</b> (≈ ' + byn(1000 * f.rate) + ' по курсу ' + String(f.rate).replace('.', ',') + '), внесённые в тело до ' + gen(y3) +
+      ', уменьшают платёж с 3-го года примерно на <b>' + num(base.pay3 - per.pay3) + ' BYN</b> в месяц, а проценты за весь срок примерно на <b>' + byn(base.int - per.int) + '</b>.</div>';
+  }
+  if (ex.length) {
+    const sum = total(ex, extraByn), cut = loanSim(ex, false), fast = loanSim(ex, true, base.pay3);
+    const last = ex[ex.length - 1].month, after = y3 && last >= y3 ? mShift(last, 1) : y3;
+    html += section('Твой план · ' + byn(sum) + ' ≈ ' + usd(Math.round(sum / f.rate)), ex.map(e => finRow({ act: 'edit', id: 'ext:' + e.id, emo: '💰',
+      name: e.cur === 'usd' ? usd(e.amt) : byn(e.amt), meta: mName(e.month) + (e.cur === 'usd' ? ' · ≈ ' + byn(extraByn(e)) : ''), amt: '' })));
+    html += '<div class="note lxres"><div class="lxh">Вариант 1. Уменьшить платёж</div>' +
+      (base.payY2 && cut.payY2 && Math.round(base.payY2) !== Math.round(cut.payY2) ? 'Платёж во 2-й год: ' + num(base.payY2) + ' → <b>' + num(cut.payY2) + ' BYN</b><br>' : '') +
+      (after && base.pays[after] ? 'Платёж с ' + gen(after) + ': ' + num(base.pays[after]) + ' → <b>' + num(cut.pays[after] || 0) + ' BYN</b> (−' + num(base.pays[after] - (cut.pays[after] || 0)) + ' в месяц)<br>' : '') +
+      'Проценты за весь срок меньше на ≈ <b>' + byn(base.int - cut.int) + '</b>' +
+      '<div class="lxh">Вариант 2. Платить как раньше и закрыть раньше</div>' +
+      'Платёж с 3-го года остаётся ' + num(base.pay3 || 0) + ' BYN, последний платёж — <b>' + low(fast.end) + '</b> вместо ' + gen(base.end) +
+      (base.n > fast.n ? ' (на ' + years(base.n - fast.n) + ' раньше)' : '') + '<br>Проценты за весь срок меньше на ≈ <b>' + byn(base.int - fast.int) + '</b></div>';
+  } else html += '<div class="note" style="color:var(--muted)">Добавь взносы, которые планируете внести в тело кредита, и здесь появится расчёт: насколько уменьшится платёж или на сколько раньше закроется кредит.</div>';
+  html += '<button class="ghost" data-act="lxadd">+ Добавить взнос в план</button>';
+  html += '<div class="sub">Как это работает</div><div class="note tips">' +
+    '<p>• <b>Пока ставка 1%</b> (' + (L.graceEnd ? 'до ' + gen(mShift(L.graceEnd, 1)) : 'до конца льготного периода') + '), деньги в кредите почти не дорожают: внести взнос сейчас или в конце льготного периода — разница по процентам около 1% от суммы в год. Главное, на что влияет взнос, — платёж и проценты под 15,4%.</p>' +
+    '<p>• <b>С 3-го года</b> каждый месяц, пока сумма лежит в долге, стоит примерно 1,3% от неё (15,4% в год). Поэтому после перехода на 15,4% чем раньше внесён взнос, тем больше экономия.</p>' +
+    '<p>• <b>Уменьшить платёж или срок:</b> сокращение срока экономит на процентах больше, уменьшение платежа делает каждый месяц легче. Сравни оба варианта выше.</p>' +
+    '<p>• <b>Что уточнить в банке:</b> как оформить частичное досрочное погашение и что банк пересчитает после него — платёж или срок. Комиссии за досрочное погашение по описанию программы нет, но порядок лучше проверить.</p>' +
+    '<p>• Ставка после льготы <b>плавающая</b> (ставка рефинансирования + 6,15): если её поменяют, цифры сдвинутся. Взносы в долларах банк переведёт в рубли по своему курсу, здесь считаю по ' + String(f.rate).replace('.', ',') + '.</p></div>';
+  return html;
+}
+function extraForm(e) {
+  const L = state.fin.loan;
+  formSheet({
+    title: e ? 'Взнос в тело кредита' : 'Новый взнос в план', ok: e ? 'Сохранить' : 'Добавить',
+    fields: [{ key: 'amt', ph: 'Сумма', mode: 'num', value: e && e.amt }, { key: 'month', lab: 'Когда внести', mode: 'month', value: e ? e.month : mShift(nowMonth(), 1), after: true }],
+    chips: [{ key: 'cur', value: e ? e.cur : 'usd', items: [['usd', 'в $'], ['byn', 'в BYN']] }],
+    valid: v => pos(v.amt) && /^\d{4}-\d{2}$/.test(v.month),
+    save: v => {
+      const data = { amt: parseNum(v.amt), cur: v.cur, month: v.month };
+      if (e) Object.assign(e, data); else (L.extras = L.extras || []).push(Object.assign({ id: newId() }, data));
+    },
+    del: e ? () => { L.extras = L.extras.filter(x => x !== e); } : null
+  });
 }
 
 /* ---------- формы ---------- */
@@ -397,6 +486,7 @@ function finAct(act, id) {
   else if (act === 'rateset') formSheet({
     title: 'Курс доллара', fields: [{ key: 'rate', lab: 'Сколько белорусских рублей за 1 $', ph: 'Например, 3', mode: 'num', value: f.rate }],
     valid: v => pos(v.rate), save: v => { f.rate = parseNum(v.rate); } });
+  else if (act === 'lxadd') extraForm();
   else if (act === 'loanset') formSheet({
     title: 'Параметры кредита', quiet: true,
     fields: [{ key: 'balance', lab: 'Остаток долга сейчас, BYN', mode: 'num', value: L.balance || '' },
@@ -404,9 +494,10 @@ function finAct(act, id) {
       { key: 'graceEnd', lab: 'Последний месяц льготной ставки', mode: 'month', ph: '2028-08', value: L.graceEnd },
       { key: 'deferEnd', lab: 'Последний месяц, когда платите только проценты', mode: 'month', ph: '2027-09', value: L.deferEnd },
       { key: 'pay1', lab: 'Платёж на льготной ставке после отсрочки, BYN', mode: 'num', value: L.pay1 || '' },
-      { key: 'pay2', lab: 'Платёж после льготного периода, BYN', mode: 'num', value: L.pay2 || '' }],
-    valid: v => parseNum(v.balance) >= 0 && parseNum(v.rate1) >= 0 && parseNum(v.rate2) >= 0 && [v.graceEnd, v.deferEnd].every(m => m === '' || /^\d{4}-\d{2}$/.test(m)) && optNum(v.pay1) && optNum(v.pay2),
-    save: v => { L.balance = parseNum(v.balance); L.rate1 = parseNum(v.rate1); L.rate2 = parseNum(v.rate2); L.graceEnd = v.graceEnd; L.deferEnd = v.deferEnd; L.pay1 = numOrNull(v.pay1) || 0; L.pay2 = numOrNull(v.pay2) || 0; } });
+      { key: 'pay2', lab: 'Платёж после льготного периода, BYN', mode: 'num', value: L.pay2 || '' },
+      { key: 'endMonth', lab: 'Последний месяц кредита (можно не заполнять: подберу сама по платежам)', mode: 'month', value: L.endMonth || '' }],
+    valid: v => parseNum(v.balance) >= 0 && parseNum(v.rate1) >= 0 && parseNum(v.rate2) >= 0 && [v.graceEnd, v.deferEnd, v.endMonth].every(m => m === '' || /^\d{4}-\d{2}$/.test(m)) && optNum(v.pay1) && optNum(v.pay2),
+    save: v => { L.balance = parseNum(v.balance); L.rate1 = parseNum(v.rate1); L.rate2 = parseNum(v.rate2); L.graceEnd = v.graceEnd; L.deferEnd = v.deferEnd; L.pay1 = numOrNull(v.pay1) || 0; L.pay2 = numOrNull(v.pay2) || 0; L.endMonth = v.endMonth || ''; } });
   else if (act === 'edit') {
     const kind = id.slice(0, 3), key = id.slice(4), by = list => list.find(x => x.id === key);
     if (kind === 'inc') incomeForm(finMonth, by(monGet(finMonth).items));
@@ -416,6 +507,7 @@ function finAct(act, id) {
     else if (kind === 'var') { const list = monMake(finMonth).costs; simpleForm(list, by(list), { edit: 'Изменить расход', namePh: 'На что', amountPh: 'Сумма, BYN', cats: true }); }
     else if (kind === 'sub') subForm(by(f.subs));
     else if (kind === 'pay') payForm(by(L.payments));
+    else if (kind === 'ext') extraForm(by(L.extras || []));
     else if (kind === 'sav') { const m = monGet(key); formSheet({
       title: 'Отложено · ' + mName(key).toLowerCase(), quiet: true,
       fields: [{ key: 'me', lab: 'Отложено за месяц, $', mode: 'num', value: m.saveMe },
