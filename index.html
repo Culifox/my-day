@@ -233,7 +233,22 @@
   body[data-tab="bdays"] { --tone: var(--pink); }
   body[data-tab="lists"] { --tone: var(--mint); }
   body[data-tab="diary"] { --tone: var(--blue); }
+  body[data-tab="wealth"] { --tone: var(--blue); }
   body[data-tab="more"] { --tone: var(--line); }
+  /* 52 недели богатства */
+  .jars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .jar { position: relative; background: var(--card); border-radius: 14px; padding: 15px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 1px; box-shadow: 0 4px 16px -12px rgba(120, 60, 20, .4); transition: transform .12s, background .2s; }
+  .jar:active { transform: scale(.94); }
+  .jar i { position: absolute; top: 0; left: 18%; right: 18%; height: 7px; background: var(--lilac); border-radius: 0 0 6px 6px; }
+  .jar b { font-size: 17px; letter-spacing: -0.02em; }
+  .jar span { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .jar.full { background: var(--pink); }
+  .jar.full i { background: #fff; }
+  body[data-tab="wealth"] .hero button.pill { background: rgba(255,255,255,.85); color: var(--text); }
+  body[data-tab="wealth"] .bar { background: rgba(255,255,255,.6); }
+  body[data-tab="wealth"] .bar i { background: var(--pink); }
+  .jar.full b { text-decoration: line-through; text-decoration-color: rgba(0,0,0,.35); opacity: .7; }
+  .jar.full span { color: var(--text); font-size: 13px; }
   .add.hide { display: none; }
   .hero .num small { font-size: 22px; font-weight: 700; letter-spacing: 0; }
   .hero .bname { font-size: 34px; line-height: 1.1; overflow-wrap: anywhere; margin-top: 4px; }

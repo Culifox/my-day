@@ -13,10 +13,11 @@ const MOD_LIST = [
   { id: 'bdays', icon: '🎂', label: 'Дни рождения', short: 'Дни рожд.' },
   { id: 'lists', icon: '📝', label: 'Списки' },
   { id: 'diary', icon: '📖', label: 'Дневник на 5 лет', short: 'Дневник' },
+  { id: 'wealth', icon: '🫙', label: '52 недели богатства', short: '52 недели' },
 ];
 const MORE = { id: 'more', icon: '☰', label: 'Ещё' };
 const TONES = { habits: '#f9dc6b', tasks: '#cdc8f6', ideas: '#f4b6d9', money: '#b9e6d6', loan: '#bdd3f3',
-  focus: '#cdc8f6', checks: '#fad6b8', bdays: '#f4b6d9', lists: '#b9e6d6', diary: '#bdd3f3' };
+  focus: '#cdc8f6', checks: '#fad6b8', bdays: '#f4b6d9', lists: '#b9e6d6', diary: '#bdd3f3', wealth: '#f9dc6b' };
 const BAR_MAX = 4;
 const BAR_DEFAULT = ['habits', 'tasks', 'money', 'loan'];
 const WDF = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
@@ -40,6 +41,7 @@ function extraMigrate() {
   state.bdays = state.bdays || [];
   state.lists = state.lists || [{ id: 'main', name: 'Общий', emoji: '📝', items: [] }, { id: 'shop', name: 'Покупки', emoji: '🛒', items: [] }];
   state.diary = state.diary || {};
+  state.wealth = Object.assign({ step: 1, cur: '$', done: [] }, state.wealth || {});
   if (extraReady) return;
   extraReady = true;
   view.addEventListener('input', e => { if (e.target.id === 'fLabel') { state.focus.label = e.target.value; save(); } });
@@ -61,6 +63,7 @@ function MODS() {
     lists: { view: viewLists, add: () => curList() ? '+ Добавить пункт' : '+ Новый список', onAdd: () => curList() ? itemForm() : listForm(),
       count: () => curList() ? curList().items.length : state.lists.length, act: listsAct },
     diary: { view: viewDiary, add: null, count: () => 0, act: diaryAct },
+    wealth: { view: viewWealth, add: null, count: () => 0, act: wealthAct },
     more: { view: viewMore, add: null, count: () => 0, act: moreAct },
   });
 }
@@ -542,4 +545,51 @@ function diaryAct(act) {
   if (text) state.diary[today] = { q: diaryQ(today), text };
   else delete state.diary[today];
   buzz('medium'); save(); render();
+}
+
+
+/* ---------- 52 недели богатства ----------
+   Баночка №N = N × шаг. При шаге 1 $ это от 1 до 52 $, за год 1 378 $ (как 100…5 200 ₽ в оригинале: 137 800 ₽). */
+const WEALTH_N = 52;
+const wAmt = n => n * state.wealth.step;
+const wMoney = n => money(n) + ' ' + state.wealth.cur;
+function viewWealth() {
+  $('title').textContent = '52 недели богатства';
+  const w = state.wealth, done = new Set(w.done);
+  const total = wAmt(WEALTH_N * (WEALTH_N + 1) / 2), saved = w.done.reduce((a, n) => a + wAmt(n), 0);
+  const left = []; for (let n = 1; n <= WEALTH_N; n++) if (!done.has(n)) left.push(n);
+  const next = left[0];
+  let jars = '';
+  for (let n = 1; n <= WEALTH_N; n++) {
+    jars += '<button class="jar' + (done.has(n) ? ' full' : '') + '" data-act="jar" data-id="' + n + '"><i></i><b>' + money(wAmt(n)) + '</b><span>' + (done.has(n) ? '✓' : n + ' нед') + '</span></button>';
+  }
+  view.innerHTML = finHero({ label: 'Накопительный челлендж', num: wMoney(saved), of: 'из ' + wMoney(total) + ' за год',
+    pct: saved / total * 100, pill: w.done.length + ' из ' + WEALTH_N + ' баночек',
+    act: next ? 'wnext' : 'wset', btn: next ? '+ ' + wMoney(wAmt(next)) : '🎉 Готово' }) +
+    '<div class="sub">Нажми на баночку, когда отложила эту сумму (в любом порядке)</div>' +
+    '<div class="jars">' + jars + '</div>' +
+    '<div class="stats" style="margin-top:14px">' + stat(wMoney(total - saved), 'осталось отложить', 'hot') +
+      stat(String(left.length), plural(left.length, 'баночка', 'баночки', 'баночек') + ' осталось') +
+      stat(wMoney(wAmt(WEALTH_N)), 'самая большая') + '</div>' +
+    '<button class="ghost" data-act="wset">⚙️ Сумма и валюта</button>' +
+    (w.done.length ? '<button class="ghost" data-act="wreset">Начать заново</button>' : '');
+}
+function wealthAct(act, id) {
+  const w = state.wealth;
+  if (act === 'jar' || act === 'wnext') {
+    const n = act === 'jar' ? +id : (() => { for (let i = 1; i <= WEALTH_N; i++) if (!w.done.includes(i)) return i; })();
+    if (!n) return;
+    w.done = w.done.includes(n) ? w.done.filter(x => x !== n) : w.done.concat(n).sort((a, b) => a - b);
+    buzz('medium'); save(); render();
+  } else if (act === 'wset') {
+    formSheet({
+      title: 'Сумма и валюта', ok: 'Сохранить', quiet: true,
+      fields: [{ key: 'step', lab: 'Шаг: первая баночка = сколько, каждая следующая больше на столько же', ph: 'Например, 1', mode: 'num', value: w.step }],
+      chips: [{ key: 'cur', lab: 'Валюта', value: w.cur, items: [['$', '$'], ['€', '€'], ['BYN', 'BYN'], ['₽', '₽']] }],
+      valid: v => parseNum(v.step) > 0,
+      save: v => { w.step = parseNum(v.step); w.cur = v.cur; }
+    });
+  } else if (act === 'wreset') {
+    ask('Снять все отметки и начать челлендж заново?', ok => { if (!ok) return; w.done = []; save(); render(); });
+  }
 }
