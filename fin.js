@@ -96,7 +96,7 @@ function viewIncome() {
       of: '≈ ' + byn(c.gross * state.fin.rate) + ' · ' + (m.goal ? 'цель ' + usd(m.goal) + ' (' + Math.round(c.gross / m.goal * 100) + '%)' : 'цель не задана'),
       pct: m.goal ? c.gross / m.goal * 100 : null,
       pill: c.tax ? 'на руки ' + usd(c.net) + ' · налог ' + usd(c.tax) : 'налога нет',
-      act: 'monthset', btn: 'цель и налог' });
+      act: 'monthset', btn: 'цель и налог' }) + leftBlock(k);
   if (!m.items.length) {
     html += empty('В этом месяце доходов пока нет.');
     if (monGet(mShift(k, -1)).items.some(i => !i.gift)) html += '<button class="ghost" data-act="repeat">Повторить ' + mName(mShift(k, -1)).toLowerCase() + '</button>';
@@ -140,6 +140,22 @@ function stopItem(list, it) {
   it.to = mShift(nowMonth(), -1);
   if (it.from && it.to < it.from) list.splice(list.indexOf(it), 1);
 }
+
+// расходы месяца в BYN: постоянные + подписки + переменные
+function monSpent(k) {
+  const f = state.fin, m = monGet(k);
+  const fixed = f.fixed.filter(x => activeIn(x, k)), subs = f.subs.filter(x => activeIn(x, k));
+  return total(fixed, x => x.amount) + total(subs, s => s.month) * f.rate + total(m.costs || [], x => x.amount);
+}
+// сколько осталось за месяц: на руки + подарки − расходы (в BYN и в $)
+function leftBlock(k) {
+  const f = state.fin, c = monCalc(k), earned = c.net + c.gifts, spent = monSpent(k);
+  const left = earned * f.rate - spent, neg = left < 0;
+  const sign = n => (n < 0 ? '−' : '') + byn(Math.abs(n));
+  return '<div class="stats" style="margin-top:10px">' + stat(sign(left), 'осталось сейчас' + (neg ? ' · ушли в минус' : ''), neg ? 'bad' : 'hot') +
+    stat(byn(earned * f.rate), 'пришло (на руки' + (c.gifts ? ' + подарки' : '') + ')') + stat(byn(spent), 'потрачено') + '</div>' +
+    '<div class="note" style="margin-top:8px;color:var(--muted)">≈ ' + (neg ? '−' : '') + usd(Math.abs(left) / f.rate) + ' по курсу ' + String(f.rate).replace('.', ',') + '</div>';
+}
 function viewCosts() {
   const f = state.fin, k = finMonth, m = monGet(k), vars = m.costs || [];
   const fixed = f.fixed.filter(x => activeIn(x, k)), subs = f.subs.filter(x => activeIn(x, k));
@@ -147,7 +163,7 @@ function viewCosts() {
   const fixSum = total(fixed, x => x.amount) + subMonth * f.rate, varSum = total(vars, x => x.amount), all = fixSum + varSum;
   let html = '<div class="mnav"><button data-act="mprev">‹</button><b>' + mName(k) + '</b><button data-act="mnext">›</button></div>' +
     finHero({ label: 'Расходы за месяц', num: byn(all), of: '≈ ' + usd(Math.round(all / f.rate)) + ' по курсу ' + String(f.rate).replace('.', ','), pct: null,
-      pill: 'постоянные ' + byn(fixSum) + ' · переменные ' + byn(varSum), act: 'rateset', btn: 'курс $' });
+      pill: 'постоянные ' + byn(fixSum) + ' · переменные ' + byn(varSum), act: 'rateset', btn: 'курс $' }) + leftBlock(k);
   // куда ушли деньги: по категориям
   const sums = {};
   const put = (id, v) => { const key = catOf(id).id; sums[key] = (sums[key] || 0) + v; };
