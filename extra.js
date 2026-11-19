@@ -1,5 +1,5 @@
 /* Разделы и настройки поверх основного приложения:
-   нижняя панель и «Ещё», привычки карточками, помодоро, «Сделал ли я?», дни рождения, списки, дневник.
+   нижняя панель и «Ещё», привычки карточками, помодоро, «Сделал ли я?», дни рождения, списки.
    Подключается перед основным скриптом и пользуется его помощниками (state, $, esc, keyOf, row, section…). */
 
 const MOD_LIST = [
@@ -12,13 +12,12 @@ const MOD_LIST = [
   { id: 'checks', icon: '🔑', label: 'Сделал ли я?', short: 'Сделал?' },
   { id: 'bdays', icon: '🎂', label: 'Дни рождения', short: 'Дни рожд.' },
   { id: 'lists', icon: '📝', label: 'Списки' },
-  { id: 'diary', icon: '📖', label: 'Дневник на 5 лет', short: 'Дневник' },
   { id: 'wealth', icon: '🫙', label: '52 недели богатства', short: '52 недели' },
   { id: 'invest', icon: '📈', label: 'Инвестиции', short: 'Инвест' },
 ];
 const MORE = { id: 'more', icon: '☰', label: 'Ещё' };
 const TONES = { habits: '#f9dc6b', tasks: '#cdc8f6', ideas: '#f4b6d9', money: '#b9e6d6', loan: '#bdd3f3',
-  focus: '#cdc8f6', checks: '#fad6b8', bdays: '#f4b6d9', lists: '#b9e6d6', diary: '#bdd3f3', wealth: '#f9dc6b', invest: '#bdd3f3' };
+  focus: '#cdc8f6', checks: '#fad6b8', bdays: '#f4b6d9', lists: '#b9e6d6', wealth: '#f9dc6b', invest: '#bdd3f3' };
 const BAR_MAX = 4;
 const BAR_DEFAULT = ['habits', 'tasks', 'money', 'loan'];
 const WDF = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
@@ -41,7 +40,6 @@ function extraMigrate() {
   state.checks = state.checks || [];
   state.bdays = state.bdays || [];
   state.lists = state.lists || [{ id: 'main', name: 'Общий', emoji: '📝', items: [] }, { id: 'shop', name: 'Покупки', emoji: '🛒', items: [] }];
-  state.diary = state.diary || {};
   state.wealth = Object.assign({ step: 1, cur: '$', done: [] }, state.wealth || {});
   state.invest = Object.assign({ done: [] }, state.invest || {});
   if (extraReady) return;
@@ -64,7 +62,6 @@ function MODS() {
     bdays: { view: viewBdays, add: '+ Добавить день рождения', onAdd: () => bdayForm(), count: () => 0, act: bdaysAct },
     lists: { view: viewLists, add: () => curList() ? '+ Добавить пункт' : '+ Новый список', onAdd: () => curList() ? itemForm() : listForm(),
       count: () => curList() ? curList().items.length : state.lists.length, act: listsAct },
-    diary: { view: viewDiary, add: null, count: () => 0, act: diaryAct },
     wealth: { view: viewWealth, add: null, count: () => 0, act: wealthAct },
     invest: { view: viewInvest, add: null, count: () => 0, act: investAct },
     more: { view: viewMore, add: null, count: () => 0, act: moreAct },
@@ -501,55 +498,6 @@ function itemForm() {
     save: v => { l.items.push({ id: newId(), text: v.text, done: false }); }
   });
 }
-
-/* ---------- дневник на пять лет ---------- */
-const DIARY_Q = [
-  'От чего ни за что не откажешься?', 'Что сегодня порадовало больше всего?', 'Чему хочется научиться в этом году?',
-  'Кому сегодня хочется сказать спасибо?', 'Какая песня сейчас крутится в голове?', 'Чем займёшься, если выпадет лишний свободный день?',
-  'Что сейчас отнимает больше всего сил?', 'Какой маленький шаг можно сделать завтра к большой цели?', 'Что в себе нравится прямо сейчас?',
-  'Какое решение давно откладывается?', 'Где хочется побывать?', 'Что сегодня получилось лучше, чем ожидалось?',
-  'О чём сейчас думается чаще всего?', 'Какую привычку хочется завести?', 'Что можно перестать делать без потерь?',
-  'Кто вдохновляет сейчас?', 'Что было самым вкусным на этой неделе?', 'Какой совет дать себе год назад?',
-  'Чего сейчас хочется больше: покоя или движения?', 'Что сейчас читаешь, смотришь или слушаешь?', 'За что сегодня можно себя похвалить?',
-  'Что пугает, но очень хочется попробовать?', 'Какое место дома самое любимое?', 'Что купить, если бы деньги не были вопросом?',
-  'Какой разговор запомнился на этой неделе?', 'Как выглядит идеальное утро?', 'Чем гордишься в работе?',
-  'Что сейчас даёт больше всего энергии?', 'С кем давно не виделись, а хочется?', 'Какое слово описывает этот месяц?',
-  'Что хочется успеть до конца года?', 'Какая мечта кажется самой смелой?', 'Что сделает завтрашний день хорошим?',
-  'Какие три вещи всегда поднимают настроение?', 'Чему научила последняя ошибка?', 'Что хочется сказать себе через пять лет?',
-  'Как отдыхаешь по-настоящему?', 'Что сейчас самое важное в жизни?', 'Какой комплимент запомнился?',
-  'От чего хочется освободиться?', 'Что нового попробовано за последнее время?', 'Какой день недели любимый и почему?',
-  'Как описать себя тремя словами?', 'Какая погода за окном и как она влияет на настроение?', 'Что сейчас вызывает любопытство?',
-  'Кому хочется помочь?', 'На что на этой неделе приятно было потратить деньги?', 'Какое самое тёплое воспоминание из детства?',
-  'Чего не хватает прямо сейчас?', 'Какой фильм или книгу посоветовать другу?', 'Что сегодня было лишним?',
-  'Как поменялись приоритеты за последний год?', 'Какую черту характера хочется развить?', 'Что хочется сделать для своего здоровья?',
-  'Где чувствуешь себя на своём месте?', 'Чем закончился бы этот день, будь он фильмом?', 'Что сейчас стоило бы отпустить?',
-  'О чём мечтается перед сном?', 'Чей поступок недавно тронул?', 'Что из сегодняшнего дня хочется запомнить?'
-];
-const dayOfYear = d => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(d.getFullYear(), 0, 0)) / 864e5);
-const diaryQ = key => dayOfYear(dateOf(key)) % DIARY_Q.length;
-function viewDiary() {
-  $('title').textContent = 'Дневник';
-  const today = keyOf(new Date()), d = new Date(), q = diaryQ(today), cur = state.diary[today];
-  const ym = today.slice(0, 7), filled = Object.keys(state.diary).filter(k => k.startsWith(ym)).length;
-  const past = Object.keys(state.diary).filter(k => k < today && state.diary[k].q === q).sort().reverse();
-  let html = '<div class="hero"><div style="min-width:0"><div class="lbl">' + WDF[d.getDay()] + ', ' + longDate(today) + '</div>' +
-    '<div class="dq">' + esc(DIARY_Q[q]) + '</div></div></div>' +
-    '<div class="note"><div class="lab" style="margin:0 0 8px">Твой ответ</div><textarea id="dText" placeholder="Напиши строчку или две...">' + esc(cur ? cur.text : '') + '</textarea>' +
-    '<button class="vsave" data-act="dsave">' + (cur ? 'Обновить' : 'Сохранить') + '</button></div>' +
-    '<div class="stats" style="margin-top:10px">' + stat(filled + ' / ' + d.getDate(), 'дней с записью в этом месяце', 'hot') + stat(String(Object.keys(state.diary).length), 'записей всего') + '</div>';
-  html += past.length
-    ? section('Ты уже отвечала на этот вопрос', past.map(k => '<div class="note"><div class="lab" style="margin:0 0 6px">' + longDate(k) + ' ' + k.slice(0, 4) + '</div><div class="dtext">' + esc(state.diary[k].text) + '</div></div>'))
-    : '<div class="note" style="font-size:14px;color:var(--muted)">Этот вопрос вернётся через ' + DIARY_Q.length + ' дней. Ответишь снова и увидишь, как поменялся ответ.</div>';
-  view.innerHTML = html;
-}
-function diaryAct(act) {
-  if (act !== 'dsave') return;
-  const today = keyOf(new Date()), text = $('dText').value.trim();
-  if (text) state.diary[today] = { q: diaryQ(today), text };
-  else delete state.diary[today];
-  buzz('medium'); save(); render();
-}
-
 
 /* ---------- 52 недели богатства ----------
    Баночка №N = N × шаг. При шаге 1 $ это от 1 до 52 $, за год 1 378 $ (как 100…5 200 ₽ в оригинале: 137 800 ₽). */
