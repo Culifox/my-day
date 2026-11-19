@@ -14,10 +14,11 @@ const MOD_LIST = [
   { id: 'lists', icon: '📝', label: 'Списки' },
   { id: 'diary', icon: '📖', label: 'Дневник на 5 лет', short: 'Дневник' },
   { id: 'wealth', icon: '🫙', label: '52 недели богатства', short: '52 недели' },
+  { id: 'invest', icon: '📈', label: 'Инвестиции', short: 'Инвест' },
 ];
 const MORE = { id: 'more', icon: '☰', label: 'Ещё' };
 const TONES = { habits: '#f9dc6b', tasks: '#cdc8f6', ideas: '#f4b6d9', money: '#b9e6d6', loan: '#bdd3f3',
-  focus: '#cdc8f6', checks: '#fad6b8', bdays: '#f4b6d9', lists: '#b9e6d6', diary: '#bdd3f3', wealth: '#f9dc6b' };
+  focus: '#cdc8f6', checks: '#fad6b8', bdays: '#f4b6d9', lists: '#b9e6d6', diary: '#bdd3f3', wealth: '#f9dc6b', invest: '#bdd3f3' };
 const BAR_MAX = 4;
 const BAR_DEFAULT = ['habits', 'tasks', 'money', 'loan'];
 const WDF = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
@@ -42,6 +43,7 @@ function extraMigrate() {
   state.lists = state.lists || [{ id: 'main', name: 'Общий', emoji: '📝', items: [] }, { id: 'shop', name: 'Покупки', emoji: '🛒', items: [] }];
   state.diary = state.diary || {};
   state.wealth = Object.assign({ step: 1, cur: '$', done: [] }, state.wealth || {});
+  state.invest = Object.assign({ done: [] }, state.invest || {});
   if (extraReady) return;
   extraReady = true;
   view.addEventListener('input', e => { if (e.target.id === 'fLabel') { state.focus.label = e.target.value; save(); } });
@@ -64,6 +66,7 @@ function MODS() {
       count: () => curList() ? curList().items.length : state.lists.length, act: listsAct },
     diary: { view: viewDiary, add: null, count: () => 0, act: diaryAct },
     wealth: { view: viewWealth, add: null, count: () => 0, act: wealthAct },
+    invest: { view: viewInvest, add: null, count: () => 0, act: investAct },
     more: { view: viewMore, add: null, count: () => 0, act: moreAct },
   });
 }
@@ -591,5 +594,64 @@ function wealthAct(act, id) {
     });
   } else if (act === 'wreset') {
     ask('Снять все отметки и начать челлендж заново?', ok => { if (!ok) return; w.done = []; save(); render(); });
+  }
+}
+
+
+/* ---------- Инвестиции: план на первые $1 000 ----------
+   План собран с ChatGPT (цены закрытия 18.11.2026), это не инвестиционная рекомендация. Перед заявкой сверить цену и баланс у брокера. */
+const INV_DATE = '18.11.2026';
+const INV_FUNDS = [
+  { t: 'SCHX', what: 'Крупные компании США', pct: 15, price: 28.73, n: 5, emo: '🇺🇸' },
+  { t: 'SPYM', what: 'Компании из индекса S&P 500', pct: 15, price: 85.97, n: 2, emo: '🏛️' },
+  { t: 'VEA', what: 'Развитые рынки вне США', pct: 18, price: 66.68, n: 3, emo: '🌍' },
+  { t: 'VWO', what: 'Развивающиеся рынки', pct: 7, price: 53.76, n: 1, emo: '🌏' },
+  { t: 'VTWO', what: 'Малые компании США', pct: 5, price: 109.11, n: 0, emo: '🌱', later: 'добавить, когда пай будет близок к 5%, примерно при $2 200' },
+  { t: 'GOVT', what: 'Казначейские облигации США', pct: 20, price: 22.10, n: 9, emo: '🏦' },
+  { t: 'VCSH', what: 'Короткие корпоративные облигации США', pct: 10, price: 77.39, n: 1, emo: '🧾' },
+  { t: 'VTIP', what: 'Короткие казначейские облигации с защитой от инфляции', pct: 5, price: 48.55, n: 1, emo: '🛡️' },
+  { t: 'IAU', what: 'Биржевой траст на физическое золото', pct: 5, price: 69.96, n: 1, emo: '🥇' },
+];
+const INV_STAGES = [
+  { add: 100, total: 100, buy: '1 IAU + 1 GOVT' },
+  { add: 200, total: 300, buy: '3 SCHX + 1 VEA' },
+  { add: 200, total: 500, buy: '1 SPYM + 1 VWO + 4 GOVT' },
+  { add: 200, total: 700, buy: '2 SCHX + 1 VEA + 1 VCSH' },
+  { add: 200, total: 900, buy: '1 SPYM + 1 VEA + 2 GOVT' },
+  { add: 100, total: 1000, buy: '2 GOVT + 1 VTIP' },
+];
+const INV_GOAL = 1000;
+const invMoney = n => '$' + String(n.toFixed(2)).replace('.', ',');
+const invInt = n => '$' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+function viewInvest() {
+  $('title').textContent = 'Инвестиции';
+  const done = new Set(state.invest.done);
+  const have = INV_STAGES.reduce((a, st, i) => done.has(i + 1) ? Math.max(a, st.total) : a, 0);
+  const next = INV_STAGES.findIndex((st, i) => !done.has(i + 1));
+  let html = finHero({ label: 'План на первые $1 000', num: invInt(have), of: 'из ' + invInt(INV_GOAL) + ' внесено по плану',
+    pct: have / INV_GOAL * 100, pill: done.size + ' из ' + INV_STAGES.length + ' этапов', act: 'iinfo', btn: 'О плане' });
+  html += '<div class="stats">' + stat('60%', 'Акции') + stat('35%', 'Облигации') + stat('5%', 'Золото') + '</div>';
+  html += '<div class="sub">Покупки по этапам. Нажми на этап, когда купила</div>';
+  html += INV_STAGES.map((st, i) => row({ id: 'e' + (i + 1), emo: ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣'][i],
+    name: 'Этап ' + (i + 1) + ' · взнос ' + invInt(st.add), meta: st.buy + ' · внесено всего ' + invInt(st.total), on: done.has(i + 1) })).join('');
+  html += '<div class="meta" style="margin:4px 6px 12px;color:var(--muted);font-size:13px">Первый взнос $100, дальше по возможности по $200, последний шаг $100. Если пополнять чаще, переходи к следующему этапу, когда сумма взносов достигнет нужной.</div>';
+  html += '<div class="sub">Целевые доли и паёв по плану на $1 000</div>' + INV_FUNDS.map(f => finRow({ emo: f.emo, name: f.t + ' · ' + f.pct + '%',
+    meta: f.what + ' · пай ' + invMoney(f.price) + (f.later ? ' · ' + f.later : ''), amt: f.n + ' шт' })).join('');
+  html += '<div class="meta" style="margin:14px 6px;color:var(--muted);font-size:12px;line-height:1.4">Цены закрытия за ' + INV_DATE +
+    ', комиссия в расчётах плана $1,50 за заявку на тикер. Перед заявкой сверь цену Ask и баланс у брокера. Это учёт плана, а не инвестиционная рекомендация.</div>';
+  if (done.size) html += '<button class="ghost" data-act="ireset">Снять все отметки</button>';
+  view.innerHTML = html;
+}
+function investAct(act, id) {
+  const d = state.invest.done;
+  if (act === 'toggle' && /^e[1-6]$/.test(id)) {
+    const n = +id.slice(1);
+    state.invest.done = d.includes(n) ? d.filter(x => x !== n) : d.concat(n).sort((a, b) => a - b);
+    buzz('medium'); save(); render();
+  } else if (act === 'iinfo') {
+    const t = 'Цель: 60% акции, 35% облигации, 5% золото. Только фонды (ETF). Покупки идут по этапам, по мере пополнения. План собран с ChatGPT и не является инвестиционной рекомендацией.';
+    tg && tg.showAlert ? tg.showAlert(t) : alert(t);
+  } else if (act === 'ireset') {
+    ask('Снять отметки со всех этапов?', ok => { if (!ok) return; state.invest.done = []; save(); render(); });
   }
 }
